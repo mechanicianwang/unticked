@@ -79,7 +79,8 @@ const HELP = `ticketkit — tickets as markdown files in your repo
   ticket docs                          docs whose tickets are all closed
   ticket hook install                  auto-close on "Closes T-12" commits
 
-ids are loose: 12, t-12 and T-0012 all work.
+ids are random (T-k7m2qx) so parallel branches never collide. Any unique
+prefix works, like a short git sha: "ticket close k7m" is enough.
 `;
 
 const root = () => core.requireRoot();
@@ -208,8 +209,8 @@ function installHook() {
   const body = `#!/bin/sh
 ${marker} — close tickets named in the commit message
 if command -v ticket >/dev/null 2>&1; then TK="ticket"; else TK=${self}; fi
-git log -1 --pretty=%B | grep -Eio '(closes|fixes|resolves) +[Tt]-?[0-9]+' | while read -r m; do
-  id=$(echo "$m" | grep -Eo '[0-9]+')
+git log -1 --pretty=%B | grep -Eio '(closes|fixes|resolves)[[:space:]]+T-[0-9a-z]+' | while read -r m; do
+  id=$(printf '%s' "$m" | grep -Eio 'T-[0-9a-z]+')
   $TK close "$id" >/dev/null 2>&1 || true
 done
 exit 0

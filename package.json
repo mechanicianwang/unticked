@@ -1,9 +1,11 @@
 {
   "name": "ticketkit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Tickets as markdown files in your repo. A CLI you run, a JSON contract anyone can build a client on.",
   "license": "MIT",
   "type": "module",
+  "repository": { "type": "git", "url": "git+https://github.com/mechanicianwang/ticketkit.git" },
+  "homepage": "https://github.com/mechanicianwang/ticketkit#readme",
   "bin": {
     "ticket": "bin/ticket.js"
   },

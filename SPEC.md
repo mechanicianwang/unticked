@@ -36,13 +36,29 @@ jump to files by name. Renaming the slug is safe. Renaming the id is not.
 
 ### Ids
 
-`T-NNNN`, zero-padded to 4, allocated as `max + 1` across all three
-directories. Clients must accept the loose forms `12`, `t-12`, `T-0012` from
-users and normalize them.
+`T-` followed by 6 random characters from `23456789abcdefghjkmnpqrstvwxyz` —
+e.g. `T-k7m2qx`. The alphabet omits `0 1 i l o u` so nothing is ambiguous when
+read aloud or retyped.
 
-> Two branches creating tickets in parallel can allocate the same id. That is
-> an accepted limitation for a single repo or a small team — see the note in
-> `core.js` for the upgrade path.
+**Ids are random rather than sequential so that branches never have to
+coordinate.** Two people on two branches can each create ten tickets, merge,
+and every id is still distinct — the same reason git names commits by hash.
+Since each ticket is its own file with a distinct name, the merge itself is
+also conflict-free. `created` gives you chronological order when you want it.
+
+Collisions are theoretically possible (729M ids; under one in a thousand at a
+thousand tickets) and are caught loudly: two files claiming one id makes `get()`
+throw and name both paths, rather than silently picking one.
+
+Clients must resolve user input in this order:
+
+1. exact id, case-insensitive, with or without the `T-` prefix
+2. a 1–4 digit number, zero-padded — `12` → `T-0012`, so tickets created by
+   the pre-0.2 sequential scheme keep working
+3. **any unique prefix**, the way git resolves short shas: `k7m` → `T-k7m2qx`
+
+Ambiguous input must be an error listing the candidates, never a guess.
+`resolveId(ids, input)` is exported for clients that want the exact behaviour.
 
 ### Frontmatter
 
@@ -205,9 +221,10 @@ Installs a `post-commit` hook. Then:
 git commit -m "add quota tests (Closes T-12)"
 ```
 
-closes `T-12` — moves the file to `.tickets/closed/`, stamps `closed:`. You
+closes `T-k7m2qx` — moves the file to `.tickets/closed/`, stamps `closed:`. You
 never have to remember, because the trigger is attached to something you were
 going to do anyway.
 
-Matches `closes|fixes|resolves` + an id, case-insensitive, any number per
-commit. The hook never fails your commit.
+Matches `closes|fixes|resolves` followed by `T-<id>`, case-insensitive, any
+number of them per commit. The `T-` is required, so ordinary prose ("closes the
+last gap") never triggers it. The hook never fails your commit.

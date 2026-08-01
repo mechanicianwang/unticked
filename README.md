@@ -12,7 +12,7 @@ npx ticketkit ls
 ```
 
 ```
-[ ] T-0001 p1 Add quota tests before the next billing change → docs/billing.md
+[ ] T-k7m2qx p1 Add quota tests before the next billing change → docs/billing.md
 ```
 
 ---
@@ -65,11 +65,11 @@ cd your-repo
 ticket init                       # creates .tickets/
 ticket new "Fix the login redirect" --priority p0 --tags auth
 ticket ls
-ticket start 1                    # → doing
-ticket close 1                    # → closed, file moves to .tickets/closed/
+ticket start k7m                  # → doing   (any unique id prefix works)
+ticket close k7m                  # → closed, file moves to .tickets/closed/
 
 ticket hook install               # the part that matters ↓
-git commit -m "fix redirect (Closes T-1)"   # closes T-1 automatically
+git commit -m "fix redirect (Closes T-k7m2qx)"   # closes it automatically
 ```
 
 Commit `.tickets/` along with your code. That is the whole system.
@@ -133,6 +133,11 @@ guarantees, and what is allowed to change between versions.
 out of sync, and `ls .tickets/open` answers "what is left" with no tooling —
 which matters when the reader is a shell script or an agent.
 
+**Ids are random, not sequential** — `T-k7m2qx`. Branches never have to
+coordinate: two people can each create ten tickets on separate branches, merge,
+and nothing collides. Type any unique prefix, like a short git sha:
+`ticket close k7m`.
+
 **The CLI is the only writer.** Clients may read the files directly (fast, no
 install), but writes go through the CLI or the core module so that id
 allocation and frontmatter stay valid. A broken client cannot corrupt the data.
@@ -169,9 +174,13 @@ fits better — the point of this section is that it often will.
 - **[tissue](https://github.com/smeans/tissue)** — markdown issues with an
   `archive/` folder and a light web view.
 
-One shared caveat: anything storing tickets as files in the working tree can
-produce merge conflicts on busy multi-branch repos. `git-bug`'s ref-based
-storage is the design that avoids this.
+A note on the shared caveat you will see raised about this whole category —
+that storing tickets as files in the working tree produces merge conflicts.
+It is worth being precise. Creating tickets on parallel branches does not
+conflict here: one file per ticket, random ids, so both sides merge cleanly.
+What can still conflict is two branches editing *the same* ticket, which is
+ordinary file-level conflict and resolves the ordinary way. `git-bug`'s
+ref-based storage sidesteps even that, at the cost of not being greppable.
 
 ---
 

@@ -137,7 +137,7 @@ function ticketFiles(root) {
 function toTicket(root, status, file) {
   const { meta, body } = parseTicketFile(fs.readFileSync(file, 'utf8'));
   return {
-    id: meta.id || path.basename(file).split('-').slice(0, 2).join('-'),
+    id: meta.id || idOf(file),
     title: meta.title || '(untitled)',
     status,
     priority: meta.priority || 'p2',
@@ -172,33 +172,77 @@ export function list(root, filter = {}) {
       const q = filter.q.toLowerCase();
       return t.title.toLowerCase().includes(q) || t.body.toLowerCase().includes(q);
     });
-  tickets.sort((a, b) => a.priority.localeCompare(b.priority) || a.id.localeCompare(b.id));
+  // Ids are random, so they carry no order — fall back to creation time.
+  tickets.sort(
+    (a, b) => a.priority.localeCompare(b.priority) || String(a.created).localeCompare(String(b.created)) || a.id.localeCompare(b.id)
+  );
   return tickets;
 }
 
 export function get(root, id) {
-  const key = normalizeId(id);
-  const hit = ticketFiles(root).find(f => path.basename(f.file).startsWith(key + '-') || path.basename(f.file) === key + '.md');
-  if (!hit) throw new Error(`ticket not found: ${id}`);
-  return toTicket(root, hit.status, hit.file);
+  const files = ticketFiles(root).map(f => ({ ...f, id: idOf(f.file) }));
+  const key = resolveId(files.map(f => f.id), id);
+  const hits = files.filter(f => f.id.toLowerCase() === key.toLowerCase());
+  if (hits.length > 1) {
+    // Only reachable for ids minted by the old sequential scheme, or a
+    // hand-edited duplicate. Refuse to guess which one the user meant.
+    throw new Error(`duplicate id ${key} in ${hits.map(h => path.relative(root, h.file)).join(' and ')} — rename one`);
+  }
+  return toTicket(root, hits[0].status, hits[0].file);
 }
 
-/** `12` / `t-12` / `T-0012` all resolve to `T-0012`. */
-export function normalizeId(id) {
-  const n = String(id).replace(/^[Tt]-?/, '');
-  if (!/^\d+$/.test(n)) return String(id);
-  return 'T-' + n.padStart(4, '0');
+const idOf = file => /^(T-[0-9a-zA-Z]+)/.exec(path.basename(file))?.[1] || path.basename(file, '.md');
+
+/**
+ * Resolve whatever the user typed against the ids that exist.
+ *
+ * Accepts, in order: an exact id, a zero-padded legacy number (`12` → `T-0012`),
+ * or any unique prefix (`k7m` → `T-k7m2qx`), the way git resolves short shas.
+ * Ambiguous input is an error, never a guess.
+ *
+ * @param {string[]} ids
+ * @param {string} input
+ */
+export function resolveId(ids, input) {
+  const raw = String(input).trim();
+  const key = raw.replace(/^[Tt]-/, '').toLowerCase();
+  const lower = ids.map(i => i.toLowerCase());
+
+  const exact = lower.indexOf('t-' + key);
+  if (exact !== -1) return ids[exact];
+
+  if (/^\d{1,4}$/.test(key)) {
+    const padded = lower.indexOf('t-' + key.padStart(4, '0'));
+    if (padded !== -1) return ids[padded];
+  }
+
+  const prefixed = ids.filter((_, i) => lower[i].startsWith('t-' + key));
+  if (prefixed.length === 1) return prefixed[0];
+  if (prefixed.length > 1) throw new Error(`ambiguous id "${raw}" — matches ${prefixed.join(', ')}`);
+  throw new Error(`ticket not found: ${raw}`);
 }
+
+/**
+ * Ids are random, not sequential, so two branches can mint tickets at the same
+ * time and still merge cleanly — the whole reason git uses hashes for commits.
+ * `created` gives you chronological order when you want it.
+ *
+ * Alphabet excludes 0/1/i/l/o/u so nothing is ambiguous when read aloud or
+ * retyped. 6 chars over 30 symbols is 729M ids: at a thousand tickets the odds
+ * of any collision across all branches are under one in a thousand — and a
+ * collision is caught loudly by `get()` rather than silently resolved.
+ */
+const ID_ALPHABET = '23456789abcdefghjkmnpqrstvwxyz';
+const ID_LENGTH = 6;
 
 function nextId(root) {
-  const nums = ticketFiles(root)
-    .map(f => /^T-(\d+)/.exec(path.basename(f.file)))
-    .filter(Boolean)
-    .map(m => Number(m[1]));
-  // ponytail: max+1 over the working tree. Two branches creating tickets in
-  // parallel can collide; fine for a single repo/small team. If that ever
-  // bites, switch to a short random suffix (`T-0007-a3f`).
-  return 'T-' + String((nums.length ? Math.max(...nums) : 0) + 1).padStart(4, '0');
+  const taken = new Set(ticketFiles(root).map(f => idOf(f.file).toLowerCase()));
+  for (let attempt = 0; attempt < 100; attempt++) {
+    let id = 'T-';
+    for (let i = 0; i < ID_LENGTH; i++) id += ID_ALPHABET[Math.floor(Math.random() * ID_ALPHABET.length)];
+    if (!taken.has(id.toLowerCase())) return id;
+  }
+  throw new Error('could not allocate a free id — is .tickets/ enormous?');
 }
 
 // --------------------------------------------------------------------- writes
