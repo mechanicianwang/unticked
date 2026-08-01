@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * ticketkit CLI — the reference client, and the only supported way to write.
+ * unticked CLI — the reference client, and the only supported way to write.
  *
  * Every read command supports `--json`, which is the contract other clients
  * build on. See SPEC.md.
@@ -62,7 +62,7 @@ function stdin() {
   }
 }
 
-const HELP = `ticketkit — tickets as markdown files in your repo
+const HELP = `unticked — tickets as markdown files in your repo
 
   ticket init                          create .tickets/ here
   ticket new "<title>" [opts]          create a ticket, prints its id
@@ -202,7 +202,7 @@ try {
 function installHook() {
   const gitDir = execFileSync('git', ['rev-parse', '--git-dir'], { encoding: 'utf8' }).trim();
   const hookPath = path.join(gitDir, 'hooks', 'post-commit');
-  const marker = '# ticketkit';
+  const marker = '# unticked';
   // Prefer a globally installed `ticket`; fall back to the exact binary that is
   // installing the hook, so this works from a clone that was never npm-linked.
   const self = JSON.stringify(fileURLToPath(import.meta.url));

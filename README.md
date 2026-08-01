@@ -1,4 +1,4 @@
-# ticketkit
+# unticked
 
 **Tickets as markdown files in your repo.** A CLI you run, a JSON contract
 anyone can build a client on, and a git hook that closes tickets for you.
@@ -6,9 +6,9 @@ anyone can build a client on, and a git hook that closes tickets for you.
 Zero dependencies. MIT.
 
 ```bash
-npx ticketkit init
-npx ticketkit new "Add quota tests before the next billing change" --priority p1 --docs docs/billing.md
-npx ticketkit ls
+npx unticked init
+npx unticked new "Add quota tests before the next billing change" --priority p1 --docs docs/billing.md
+npx unticked ls
 ```
 
 ```
@@ -39,7 +39,7 @@ That is the situation this was built for. The shape looks like this in practice
 Zero ticked, every time. The checklists were not wrong, they were **unusable**:
 you cannot tell "not done" from "done, never ticked".
 
-ticketkit fixes the specific thing that causes this — not by giving you a nicer
+unticked fixes the specific thing that causes this — not by giving you a nicer
 place to write the list, but by attaching the closing action to something you
 already do. You commit code. That closes the ticket.
 
@@ -59,7 +59,7 @@ non-technical users filing tickets, or anything resembling Jira. Use Jira.
 ## Quickstart
 
 ```bash
-npm install -g ticketkit          # or: npx ticketkit <command>
+npm install -g unticked          # or: npx unticked <command>
 
 cd your-repo
 ticket init                       # creates .tickets/
@@ -90,7 +90,7 @@ tickets, and closing one must not bury the other four.
 
 ## Build your own client
 
-This is the part ticketkit exists for. Other local trackers ship one UI and
+This is the part unticked exists for. Other local trackers ship one UI and
 that is the UI you get. Here the engine has no UI at all, and the contract is
 public and small, so the board can live wherever you already look.
 
@@ -103,12 +103,12 @@ Three ways in:
 | you are writing | use | cost |
 |---|---|---|
 | TUI, editor plugin, CI job, AI agent | shell out to `ticket ... --json` | nothing |
-| a Node tool | `import { list, create } from 'ticketkit'` | nothing |
-| a web UI | `createTicketRoute()` from `ticketkit/adapters/next` | ~20 lines |
+| a Node tool | `import { list, create } from 'unticked'` | nothing |
+| a web UI | `createTicketRoute()` from `unticked/adapters/next` | ~20 lines |
 
 ```ts
 // app/api/tickets/route.ts — the entire server side of a web client
-import { createTicketRoute } from 'ticketkit/adapters/next';
+import { createTicketRoute } from 'unticked/adapters/next';
 export const { GET, POST } = createTicketRoute({ cwd: process.env.REPO_PATH });
 ```
 
@@ -142,7 +142,7 @@ and nothing collides. Type any unique prefix, like a short git sha:
 install), but writes go through the CLI or the core module so that id
 allocation and frontmatter stay valid. A broken client cannot corrupt the data.
 
-**Suggest, never act.** ticketkit will not archive your documents, close
+**Suggest, never act.** unticked will not archive your documents, close
 tickets it thinks are stale, or garbage-collect anything. Irreversible actions
 are yours.
 

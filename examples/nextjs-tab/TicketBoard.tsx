@@ -2,7 +2,7 @@
 
 /**
  * Reference client — copy this file into your app and point it at the route
- * created by `ticketkit/adapters/next`. It renders from `ls --json` and writes
+ * created by `unticked/adapters/next`. It renders from `ls --json` and writes
  * through the adapter; it never touches `.tickets/` itself.
  *
  * Styling is plain Tailwind on a dark surface. Restyle it freely — the whole

@@ -11,7 +11,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import * as core from '../src/core.js';
 
-const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ticketkit-'));
+const root = fs.mkdtempSync(path.join(os.tmpdir(), 'unticked-'));
 const CLI = path.join(import.meta.dirname, '..', 'bin', 'ticket.js');
 const cli = (...args) => execFileSync(process.execPath, [CLI, ...args], { cwd: root, encoding: 'utf8' });
 

@@ -1,5 +1,5 @@
 /**
- * ticketkit core — read/write tickets stored as markdown files.
+ * unticked core — read/write tickets stored as markdown files.
  *
  * Zero dependencies. Every client (CLI, HTTP adapter, editor plugin, agent)
  * goes through this module, so there is exactly one implementation of the

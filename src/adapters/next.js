@@ -7,7 +7,7 @@
  * that runs on a machine with the repo on disk.
  *
  *   // app/api/tickets/route.ts
- *   import { createTicketRoute } from 'ticketkit/adapters/next';
+ *   import { createTicketRoute } from 'unticked/adapters/next';
  *   export const { GET, POST } = createTicketRoute({ cwd: process.env.REPO_PATH });
  *
  * The JSON it returns is exactly what `ticket ls --json` prints.

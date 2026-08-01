@@ -1,7 +1,7 @@
-# ticketkit protocol
+# unticked protocol
 
 Everything a client needs to know. If you implement against this page, your
-client keeps working across ticketkit versions.
+client keeps working across unticked versions.
 
 There are two contracts: the **files on disk** and the **JSON**. Read whichever
 one fits your client. They will not diverge, because the CLI, the HTTP adapter
@@ -98,7 +98,7 @@ returned in JSON — put anything you like there, it will survive.
 **Frontmatter is a restricted subset of YAML**, not the whole language:
 scalars and single-line flow arrays (`[a, b]`), values containing anything
 outside `[\w./@-]` are double-quoted with `\` escaping. This is deliberate — it
-keeps ticketkit at zero dependencies. Hand-editing a ticket into real YAML
+keeps unticked at zero dependencies. Hand-editing a ticket into real YAML
 (block lists, anchors, multi-line strings) will not round-trip.
 
 ---
@@ -140,7 +140,7 @@ Guarantees:
   or change type without a version bump
 
 The `docs` array at the top level is a **suggestion, never an action**.
-ticketkit will not archive or delete a document for you: one document usually
+unticked will not archive or delete a document for you: one document usually
 spawns several tickets, and closing one of them must not bury the other four.
 
 ---
@@ -166,7 +166,7 @@ No install of anything but the CLI, no API surface to keep up with.
 ### b. Import the core module — Node clients
 
 ```js
-import { list, create, setStatus, requireRoot } from 'ticketkit';
+import { list, create, setStatus, requireRoot } from 'unticked';
 
 const root = requireRoot(process.cwd());   // walks up for .tickets/
 const open = list(root, { status: 'open', tag: 'seo' });
@@ -181,7 +181,7 @@ This is the only unavoidable coupling, and it is about twenty lines:
 
 ```ts
 // app/api/tickets/route.ts
-import { createTicketRoute } from 'ticketkit/adapters/next';
+import { createTicketRoute } from 'unticked/adapters/next';
 export const { GET, POST } = createTicketRoute({ cwd: process.env.REPO_PATH });
 ```
 
