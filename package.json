@@ -1,0 +1,35 @@
+{
+  "name": "ticketkit",
+  "version": "0.1.0",
+  "description": "Tickets as markdown files in your repo. A CLI you run, a JSON contract anyone can build a client on.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "ticket": "bin/ticket.js"
+  },
+  "exports": {
+    ".": "./src/core.js",
+    "./adapters/next": "./src/adapters/next.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "SPEC.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node test/self-check.mjs"
+  },
+  "keywords": [
+    "tickets",
+    "issue-tracker",
+    "todo",
+    "markdown",
+    "git",
+    "cli",
+    "local-first",
+    "embeddable"
+  ]
+}
