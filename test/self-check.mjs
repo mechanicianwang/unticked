@@ -98,6 +98,76 @@ assert.deepEqual(core.orphanedDocs(root), ['docs/x.md']);
 core.create(root, { title: 'another one on the same doc', docs: ['docs/x.md'] });
 assert.deepEqual(core.orphanedDocs(root), [], 'a doc with any open ticket is not orphaned');
 
+// --- config -----------------------------------------------------------------
+assert.equal(core.readConfig(root).docsRoot, 'docs', 'default docsRoot');
+core.writeConfig(root, { docsRoot: 'docs/14-tickets', archiveRoot: 'docs/archive' });
+assert.equal(core.readConfig(root).docsRoot, 'docs/14-tickets', 'config persists');
+
+// --- doc status is derived, never stored ------------------------------------
+{
+  const r = fs.mkdtempSync(path.join(os.tmpdir(), 'tk-docs-'));
+  core.init(r, { docsRoot: 'docs/14-tickets', archiveRoot: 'docs/archive' });
+  fs.mkdirSync(path.join(r, 'docs/14-tickets'), { recursive: true });
+  const doc = 'docs/14-tickets/plan.md';
+  fs.writeFileSync(path.join(r, doc), '# plan\n');
+
+  const t1 = core.create(r, { title: 'one', docs: [doc] });
+  const t2 = core.create(r, { title: 'two', docs: [doc] });
+  const statusOf = () => core.docStatuses(r).find(d => d.doc === doc).status;
+
+  assert.equal(statusOf(), 'todo', 'has tickets, none started');
+  core.setStatus(r, t1.id, 'doing');
+  assert.equal(statusOf(), 'doing', 'one in progress');
+  core.setStatus(r, t1.id, 'closed');
+  assert.equal(statusOf(), 'todo', 'still one open ticket left');
+  core.setStatus(r, t2.id, 'closed');
+  assert.equal(statusOf(), 'done', 'all closed');
+  assert.deepEqual(core.orphanedDocs(r), [doc]);
+
+  // The whole point: closing ONE ticket must never bury a doc that has others.
+  core.setStatus(r, t2.id, 'open');
+  assert.throws(() => core.archiveDoc(r, doc, { git: false }), /unfinished ticket/, 'archive refuses while a ticket is open');
+  assert.ok(fs.existsSync(path.join(r, doc)), 'refused archive left the file alone');
+  assert.throws(() => core.archiveDoc(r, doc, { git: false }), new RegExp(t2.id), 'and names the blocking ticket');
+
+  // Forced archive, then: the pointers must follow the file.
+  core.setStatus(r, t2.id, 'closed');
+  const res = core.archiveDoc(r, doc, { git: false });
+  assert.equal(res.to, 'docs/archive/plan.md');
+  assert.ok(!fs.existsSync(path.join(r, doc)), 'moved out of the old path');
+  assert.ok(fs.existsSync(path.join(r, res.to)), 'landed in the archive');
+  assert.equal(res.updated.length, 2, 'both tickets repointed');
+  for (const t of core.list(r, { status: 'all' })) {
+    assert.deepEqual(t.docs, [res.to], `${t.id} points at the new path — a move that leaves dangling refs is worse than no move`);
+  }
+  assert.equal(core.docStatuses(r)[0].status, 'archived', 'living under archiveRoot reads as archived');
+  assert.deepEqual(core.orphanedDocs(r), [], 'archived docs stop being suggested');
+
+  // Dangling links elsewhere are reported, not rewritten.
+  fs.writeFileSync(path.join(r, 'docs/14-tickets/other.md'), 'see [plan](./plan.md)\n');
+  fs.writeFileSync(path.join(r, 'docs/14-tickets/p2.md'), '# p2\n');
+  const t3 = core.create(r, { title: 'three', docs: ['docs/14-tickets/p2.md'] });
+  core.setStatus(r, t3.id, 'closed');
+  const res2 = core.archiveDoc(r, 'docs/14-tickets/p2.md', { git: false });
+  assert.ok(Array.isArray(res2.danglingLinks));
+
+  // doc new
+  const made = core.createDoc(r, { title: '新方案 A' });
+  assert.ok(made.startsWith('docs/14-tickets/'), 'lands under the configured docsRoot');
+  assert.ok(fs.existsSync(path.join(r, made)));
+  assert.throws(() => core.createDoc(r, { title: '新方案 A' }), /already exists/, 'never silently overwrites a doc');
+
+  // rm is not close
+  const doomed = core.create(r, { title: 'delete me' });
+  const before = core.list(r, { status: 'all' }).length;
+  core.remove(r, doomed.id);
+  assert.equal(core.list(r, { status: 'all' }).length, before - 1);
+  assert.ok(!fs.existsSync(path.join(r, doomed.file)));
+  assert.throws(() => core.get(r, doomed.id), /not found/);
+
+  fs.rmSync(r, { recursive: true, force: true });
+}
+
 // --- the JSON contract clients depend on ------------------------------------
 const out = JSON.parse(cli('ls', '--json'));
 assert.equal(out.schemaVersion, core.SCHEMA_VERSION);

@@ -67,6 +67,7 @@ ticket new "Fix the login redirect" --priority p0 --tags auth
 ticket ls
 ticket start k7m                  # → doing   (any unique id prefix works)
 ticket close k7m                  # → closed, file moves to .tickets/closed/
+ticket rm k7m --yes               # delete outright — closing is not this
 
 ticket hook install               # the part that matters ↓
 git commit -m "fix redirect (Closes T-k7m2qx)"   # closes it automatically
@@ -74,17 +75,41 @@ git commit -m "fix redirect (Closes T-k7m2qx)"   # closes it automatically
 
 Commit `.tickets/` along with your code. That is the whole system.
 
-### Linking tickets to the documents they came from
+### Documents
+
+Tickets can point at the documents they came from, and those documents get a
+lifecycle **derived from their tickets** — never stored, so it cannot go stale.
 
 ```bash
+ticket config --docs-root docs/plans          # where new docs go (set once)
+
 ticket new "Write the migration" --docs docs/plans/db-migration.md
-ticket ls --doc docs/plans/db-migration.md    # everything still open for that doc
-ticket docs                                   # docs whose tickets are ALL closed
+ticket doc new "Search rewrite"               # new doc under docsRoot + a linked ticket
+
+ticket ls --doc docs/plans/db-migration.md    # what is still open for that doc
+ticket docs                                   # every linked doc + its status
 ```
 
-`ticket docs` tells you a document has nothing left outstanding — it will not
-archive or delete anything for you. One document usually spawns several
-tickets, and closing one must not bury the other four.
+```
+[进行中] docs/plans/db-migration.md  1/3 closed
+[已完成] docs/plans/search.md        4/4 closed  → ticket archive docs/plans/search.md
+```
+
+未开始 → 进行中 → 已完成 → 已归档. A document is only ever *moved* once, when
+you archive it:
+
+```bash
+ticket archive docs/plans/search.md
+```
+
+That refuses while any of its tickets are still open (one document usually
+spawns several; filing away the fifth must not bury the other four), `git mv`s
+the file so its history follows, **rewrites the `docs:` pointer in every ticket
+that referenced it**, and tells you which other documents still link to the old
+path without touching them.
+
+Documents otherwise stay exactly where your repo's conventions put them —
+organised by topic, not by state.
 
 ---
 
@@ -142,9 +167,14 @@ and nothing collides. Type any unique prefix, like a short git sha:
 install), but writes go through the CLI or the core module so that id
 allocation and frontmatter stay valid. A broken client cannot corrupt the data.
 
-**Suggest, never act.** unticked will not archive your documents, close
-tickets it thinks are stale, or garbage-collect anything. Irreversible actions
-are yours.
+**Suggest, never act.** Nothing is archived or deleted as a side effect.
+Closing the last ticket for a document tells you it *can* be archived;
+archiving it is a separate command you type. Irreversible actions are yours.
+
+**Document status is derived, never stored.** It is computed from the
+document's tickets every time you ask. Storing it would create a second source
+of truth that drifts from the first — which is the exact problem this tool
+exists to solve, and a poor thing to reintroduce one level up.
 
 **Zero dependencies, on purpose.** Frontmatter is a
 [documented restricted subset](SPEC.md#frontmatter) of YAML rather than a real

@@ -37,7 +37,16 @@ export function createTicketRoute(opts = {}) {
         doc: p.get('doc') || undefined,
         q: p.get('q') || undefined,
       });
-      return json({ schemaVersion: core.SCHEMA_VERSION, tickets, docs: core.orphanedDocs(root()) });
+      return json({
+        schemaVersion: core.SCHEMA_VERSION,
+        tickets,
+        // Every linked document with its derived status. `orphanDocs` is the
+        // subset safe to archive, kept as its own field so clients that only
+        // want the nudge do not have to filter.
+        docs: core.docStatuses(root()),
+        orphanDocs: core.orphanedDocs(root()),
+        config: core.readConfig(root()),
+      });
     } catch (err) {
       return json({ error: err.message }, 400);
     }
@@ -54,6 +63,10 @@ export function createTicketRoute(opts = {}) {
           return json({ ticket: core.setStatus(root(), b.id, b.status) });
         case 'note':
           return json({ ticket: core.addNote(root(), b.id, b.text) });
+        case 'remove':
+          return json({ ticket: core.remove(root(), b.id) });
+        case 'archive':
+          return json({ archived: core.archiveDoc(root(), b.doc, { force: !!b.force }) });
         default:
           return json({ error: `unknown action: ${b.action}` }, 400);
       }

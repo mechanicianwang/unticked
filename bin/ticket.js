@@ -64,7 +64,9 @@ function stdin() {
 
 const HELP = `unticked — tickets as markdown files in your repo
 
-  ticket init                          create .tickets/ here
+  ticket init [--docs-root docs] [--archive-root docs/archive]
+                                       create .tickets/ here
+  ticket config [--docs-root <path>] [--archive-root <path>] [--json]
   ticket new "<title>" [opts]          create a ticket, prints its id
       --body <text|->                  body text, or - to read stdin
       --docs a.md,b.md                 link to docs this ticket came from
@@ -76,7 +78,16 @@ const HELP = `unticked — tickets as markdown files in your repo
   ticket show <id> [--json]            show one ticket
   ticket start|close|reopen <id>       move between open / doing / closed
   ticket note <id> "<text>"            append a timestamped note
-  ticket docs                          docs whose tickets are all closed
+  ticket rm <id> --yes                 delete a ticket (closing is not this)
+
+  ticket docs [--json]                 every linked doc + its derived status
+      status is computed from the doc's tickets, never stored:
+      未开始 → 进行中 → 已完成 → 已归档
+  ticket doc new "<title>" [--dir <path>] [--no-ticket]
+                                       write a doc under docsRoot, link a ticket
+  ticket archive <doc> [--force]       move a doc to archiveRoot and repoint
+                                       its tickets; refuses while any are open
+
   ticket hook install                  auto-close on "Closes T-12" commits
 
 ids are random (T-k7m2qx) so parallel branches never collide. Any unique
@@ -88,7 +99,25 @@ const root = () => core.requireRoot();
 try {
   switch (cmd) {
     case 'init': {
-      console.log(core.init(process.cwd()) + '/.tickets');
+      const f = flags(argv);
+      const cfg = {};
+      if (f['docs-root']) cfg.docsRoot = String(f['docs-root']).replace(/\/*$/, '');
+      if (f['archive-root']) cfg.archiveRoot = String(f['archive-root']).replace(/\/*$/, '');
+      const r = core.init(process.cwd(), Object.keys(cfg).length ? cfg : undefined);
+      const c = core.readConfig(r);
+      console.log(`${r}/.tickets`);
+      console.log(dim(`docs → ${c.docsRoot}   archive → ${c.archiveRoot}`));
+      console.log(dim('change these any time with `ticket config --docs-root <path>`'));
+      break;
+    }
+
+    case 'config': {
+      const f = flags(argv);
+      const patch = {};
+      if (f['docs-root']) patch.docsRoot = String(f['docs-root']).replace(/\/*$/, '');
+      if (f['archive-root']) patch.archiveRoot = String(f['archive-root']).replace(/\/*$/, '');
+      const c = Object.keys(patch).length ? core.writeConfig(root(), patch) : core.readConfig(root());
+      console.log(f.json ? JSON.stringify(c, null, 2) : `docsRoot    ${c.docsRoot}\narchiveRoot ${c.archiveRoot}`);
       break;
     }
 
@@ -156,9 +185,59 @@ try {
     }
 
     case 'docs': {
-      const orphans = core.orphanedDocs(root());
-      if (!orphans.length) console.log(dim('no docs with all tickets closed'));
-      else orphans.forEach(d => console.log(d));
+      const f = flags(argv);
+      const docs = core.docStatuses(root());
+      if (f.json) {
+        console.log(JSON.stringify({ schemaVersion: core.SCHEMA_VERSION, docs }, null, 2));
+        break;
+      }
+      if (!docs.length) {
+        console.log(dim('no ticket references a document yet — use `ticket new --docs <path>`'));
+        break;
+      }
+      const label = { todo: '未开始', doing: '进行中', done: '已完成', archived: '已归档' };
+      for (const d of docs) {
+        const counts = dim(`${d.closed}/${d.total} closed`);
+        const hint = d.status === 'done' ? tint('  → ticket archive ' + d.doc, 'p1') : '';
+        console.log(`[${label[d.status]}] ${d.doc}  ${counts}${hint}`);
+      }
+      break;
+    }
+
+    case 'doc': {
+      const f = flags(argv);
+      if (f._.shift() !== 'new') die('usage: ticket doc new "<title>" [--dir <path>] [--no-ticket]');
+      const title = f._.join(' ');
+      const r = core.findRoot() || process.cwd();
+      const doc = core.createDoc(r, { title, dir: typeof f.dir === 'string' ? f.dir : undefined });
+      console.log(doc);
+      if (f.ticket !== false && !f['no-ticket']) {
+        const t = core.create(r, { title, docs: [doc], priority: f.priority || 'p2' });
+        console.log(`${t.id}  ${t.file}  ${dim('→ ' + doc)}`);
+      }
+      break;
+    }
+
+    case 'archive': {
+      const f = flags(argv);
+      const doc = f._[0] || die('usage: ticket archive <doc-path> [--force]');
+      const r = core.archiveDoc(root(), doc, { force: !!f.force });
+      console.log(`${r.from} → ${r.to}`);
+      if (r.updated.length) console.log(dim(`updated docs: pointer in ${r.updated.join(', ')}`));
+      if (r.danglingLinks.length) {
+        console.log(tint(`\n${r.danglingLinks.length} file(s) still mention it — fix by hand if they are links:`, 'p1'));
+        r.danglingLinks.forEach(l => console.log('  ' + l));
+      }
+      break;
+    }
+
+    case 'rm': {
+      const f = flags(argv);
+      const id = f._[0] || die('usage: ticket rm <id> --yes');
+      const t = core.get(root(), id);
+      if (!f.yes) die(`this deletes ${t.id} "${t.title}" (${t.file}) for good.\nre-run with --yes if that is what you want`);
+      core.remove(root(), id);
+      console.log(`deleted ${t.id}  ${t.file}`);
       break;
     }
 

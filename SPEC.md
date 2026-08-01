@@ -101,6 +101,55 @@ outside `[\w./@-]` are double-quoted with `\` escaping. This is deliberate — i
 keeps unticked at zero dependencies. Hand-editing a ticket into real YAML
 (block lists, anchors, multi-line strings) will not round-trip.
 
+
+### Config
+
+`.tickets/config.json`, written by `ticket init` and editable with
+`ticket config`:
+
+```json
+{
+  "version": 1,
+  "docsRoot": "docs",
+  "archiveRoot": "docs/archive"
+}
+```
+
+Every repo organises `docs/` differently, so neither path is baked in. Missing
+file means the defaults above.
+
+---
+
+## 1b. Documents
+
+A ticket may point at the documents it came from, via `docs:`. Those documents
+have a lifecycle too — but **their status is derived from their tickets and is
+never written down anywhere**:
+
+| status | meaning |
+|---|---|
+| `todo` | has tickets, none started |
+| `doing` | at least one ticket in progress |
+| `done` | every ticket closed — safe to archive |
+| `archived` | the file lives under `archiveRoot` |
+
+Storing a document's status would create a second source of truth that drifts
+from the first. Stale checklists are the problem this tool exists to solve; it
+would be a poor thing to reintroduce one level up.
+
+**Documents are never moved except to archive.** They stay wherever your repo's
+own conventions put them — organised by topic, not by state. `ticket archive`
+is the one command that moves a document, and it:
+
+1. refuses while any referencing ticket is still `open` or `doing`, naming
+   them (one document usually spawns several tickets; filing away the fifth
+   must not bury the other four) — `--force` overrides
+2. `git mv`s the file so its history follows it
+3. **rewrites the `docs:` pointer in every ticket that referenced it** — a move
+   that leaves dangling references turns the index into a liability
+4. reports other documents that still mention the old path, and does not touch
+   them; auto-editing prose mangles code blocks that happen to contain a path
+
 ---
 
 ## 2. JSON
@@ -126,7 +175,12 @@ Identical shape in all three.
       "file": ".tickets/open/T-0012-add-quota-tests.md"
     }
   ],
-  "docs": ["docs/some-doc.md"]       // docs whose tickets are ALL closed
+  "docs": [                          // every linked doc, status DERIVED
+    { "doc": "docs/plans/x.md", "status": "doing",
+      "total": 3, "open": 1, "doing": 1, "closed": 1 }
+  ],
+  "orphanDocs": ["docs/done.md"],    // subset whose tickets are ALL closed
+  "config": { "docsRoot": "docs", "archiveRoot": "docs/archive" }
 }
 ```
 
@@ -139,9 +193,10 @@ Guarantees:
 - New fields may be added within `schemaVersion: 1`. Fields will not be removed
   or change type without a version bump
 
-The `docs` array at the top level is a **suggestion, never an action**.
-unticked will not archive or delete a document for you: one document usually
-spawns several tickets, and closing one of them must not bury the other four.
+`docs` and `orphanDocs` are **suggestions, never actions**. Nothing is archived
+or deleted as a side effect of closing a ticket — one document usually spawns
+several tickets, and closing one of them must not bury the other four.
+Archiving is always an explicit `ticket archive` / `action: "archive"` call.
 
 ---
 
@@ -158,6 +213,11 @@ ticket ls --doc docs/seo/plan.md --json
 ticket show 12 --json
 ticket new "title" --docs a.md --tags seo --priority p1 --body -   # body from stdin
 ticket start 12 / ticket close 12 / ticket reopen 12
+ticket rm 12 --yes                    # delete outright
+ticket docs --json                    # every linked doc + derived status
+ticket doc new "title" [--dir path]   # write a doc under docsRoot + link it
+ticket archive docs/plans/x.md        # the only move; refuses if work is open
+ticket config --docs-root docs/14-tickets
 ```
 
 This is what an editor plugin, a TUI, a CI job or an AI agent should use.
@@ -192,9 +252,11 @@ machine that has the repo on disk.
 ```
 GET  ?status=all&tag=x&doc=y&q=z    → { schemaVersion, tickets, docs }
 GET  ?id=T-0012                     → { schemaVersion, ticket }
-POST { action: "create", title, body?, docs?, tags?, priority? }
-POST { action: "status", id, status }
-POST { action: "note",   id, text }
+POST { action: "create",  title, body?, docs?, tags?, priority? }
+POST { action: "status",  id, status }
+POST { action: "note",    id, text }
+POST { action: "remove",  id }                 // delete; closing is not this
+POST { action: "archive", doc, force? }        // move doc + repoint tickets
 ```
 
 Pass `{ readOnly: true }` if the host app is reachable by anyone you would not

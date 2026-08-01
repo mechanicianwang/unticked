@@ -37,8 +37,33 @@ const COLUMNS = [
   { status: 'closed', label: '已关闭' },
 ] as const;
 
+/** Derived from a doc's tickets by the server — never stored. */
+type DocStatus = {
+  doc: string;
+  status: 'todo' | 'doing' | 'done' | 'archived';
+  total: number;
+  open: number;
+  doing: number;
+  closed: number;
+};
+
+const DOC_LABEL: Record<DocStatus['status'], string> = {
+  todo: '未开始',
+  doing: '进行中',
+  done: '已完成',
+  archived: '已归档',
+};
+
+const DOC_STYLE: Record<DocStatus['status'], string> = {
+  todo: 'text-gray-400',
+  doing: 'text-sky-400',
+  done: 'text-emerald-400',
+  archived: 'text-gray-600',
+};
+
 export default function TicketBoard({ endpoint = '/api/tickets' }: { endpoint?: string }) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [docs, setDocs] = useState<DocStatus[]>([]);
   const [orphanDocs, setOrphanDocs] = useState<string[]>([]);
   const [q, setQ] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +76,8 @@ export default function TicketBoard({ endpoint = '/api/tickets' }: { endpoint?: 
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setTickets(data.tickets);
-      setOrphanDocs(data.docs ?? []);
+      setDocs(data.docs ?? []);
+      setOrphanDocs(data.orphanDocs ?? []);
       setError(null);
     } catch (err) {
       setError((err as Error).message);
@@ -111,9 +137,41 @@ export default function TicketBoard({ endpoint = '/api/tickets' }: { endpoint?: 
 
       {error && <div className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-sm text-red-400">{error}</div>}
 
+      {docs.length > 0 && (
+        <section className="rounded-lg bg-gray-900 border border-gray-800 p-3 space-y-1.5">
+          <h2 className="text-sm font-semibold text-gray-400">
+            关联文档 <span className="text-gray-600">{docs.length}</span>
+            <span className="ml-2 font-normal text-[11px] text-gray-600">状态由该文档的 ticket 推导，不单独存储</span>
+          </h2>
+          {docs.map(d => (
+            <div key={d.doc} className="flex items-center gap-2 text-xs">
+              <span className={`w-12 shrink-0 ${DOC_STYLE[d.status]}`}>{DOC_LABEL[d.status]}</span>
+              <span className="font-mono text-gray-300 truncate" title={d.doc}>
+                {d.doc}
+              </span>
+              <span className="text-gray-600 shrink-0">
+                {d.closed}/{d.total}
+              </span>
+              {d.status === 'done' && (
+                <button
+                  onClick={() => {
+                    if (confirm(`归档 ${d.doc}？\n文件会移到归档目录，引用它的 ticket 会自动改指向新路径。`)) {
+                      void write({ action: 'archive', doc: d.doc });
+                    }
+                  }}
+                  className="ml-auto shrink-0 px-2 py-0.5 rounded bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30"
+                >
+                  归档
+                </button>
+              )}
+            </div>
+          ))}
+        </section>
+      )}
+
       {orphanDocs.length > 0 && (
         <div className="px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-sm text-amber-300">
-          这些文档的 ticket 已全部关闭，可以考虑归档：{orphanDocs.join('、')}
+          这些文档的 ticket 已全部关闭，可以归档：{orphanDocs.join('、')}
         </div>
       )}
 
@@ -170,6 +228,16 @@ export default function TicketBoard({ endpoint = '/api/tickets' }: { endpoint?: 
                         重开
                       </button>
                     )}
+                    <button
+                      onClick={() => {
+                        if (confirm(`删除 ${t.id}「${t.title}」？\n这不是关闭，是彻底删掉，不可恢复。`)) {
+                          void write({ action: 'remove', id: t.id });
+                        }
+                      }}
+                      className="px-2 py-1 rounded text-gray-600 hover:bg-red-500/15 hover:text-red-400"
+                    >
+                      删除
+                    </button>
                     <span className="ml-auto self-center font-mono text-[10px] text-gray-600">{t.file}</span>
                   </div>
                 </article>

@@ -16,6 +16,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 /** Bumped only on breaking changes to the JSON shape returned to clients. */
 export const SCHEMA_VERSION = 1;
@@ -99,16 +100,47 @@ export function requireRoot(cwd = process.cwd()) {
   return root;
 }
 
-export function init(cwd = process.cwd()) {
+export function init(cwd = process.cwd(), config) {
   const root = path.resolve(cwd);
-  for (const s of STATUSES) fs.mkdirSync(path.join(root, DIR, s), { recursive: true });
-  const keep = path.join(root, DIR, 'closed', '.gitkeep');
   for (const s of STATUSES) {
+    fs.mkdirSync(path.join(root, DIR, s), { recursive: true });
     const f = path.join(root, DIR, s, '.gitkeep');
     if (!fs.existsSync(f)) fs.writeFileSync(f, '');
   }
-  void keep;
+  if (config) writeConfig(root, config);
   return root;
+}
+
+// -------------------------------------------------------------------- config
+
+/**
+ * Where this repo keeps documents. Not baked in: every repo organises `docs/`
+ * differently, and the tool has no business guessing.
+ */
+export const DEFAULT_CONFIG = {
+  version: 1,
+  docsRoot: 'docs',
+  archiveRoot: 'docs/archive',
+};
+
+const CONFIG_FILE = 'config.json';
+
+export function readConfig(root) {
+  const file = path.join(root, DIR, CONFIG_FILE);
+  if (!fs.existsSync(file)) return { ...DEFAULT_CONFIG };
+  try {
+    return { ...DEFAULT_CONFIG, ...JSON.parse(fs.readFileSync(file, 'utf8')) };
+  } catch {
+    // A hand-mangled config should not take the whole tool down.
+    return { ...DEFAULT_CONFIG };
+  }
+}
+
+export function writeConfig(root, patch) {
+  const next = { ...readConfig(root), ...patch };
+  fs.mkdirSync(path.join(root, DIR), { recursive: true });
+  fs.writeFileSync(path.join(root, DIR, CONFIG_FILE), JSON.stringify(next, null, 2) + '\n');
+  return next;
 }
 
 function slug(title) {
@@ -299,13 +331,157 @@ export function addNote(root, id, text) {
   return toTicket(root, t.status, file);
 }
 
+// ----------------------------------------------------------------------- docs
+
 /**
- * Docs that are referenced only by tickets which are now closed.
- * Used to *suggest* archiving — never to archive automatically, because one
- * doc usually spawns many tickets and closing one must not bury the rest.
+ * A document's status is DERIVED from the tickets that reference it. It is
+ * never stored anywhere.
+ *
+ * Storing it would mean two sources of truth — a `status:` in the document and
+ * the real state of its tickets — and those drift. Drifted checklists are the
+ * exact problem this tool exists to fix, so it would be a poor thing to
+ * reintroduce one level up.
+ *
+ *   todo     has tickets, none started
+ *   doing    at least one ticket in progress
+ *   done     every ticket closed  → safe to archive
+ *   archived the file already lives under archiveRoot
+ *
+ * @returns {{doc: string, status: string, total: number, open: number, doing: number, closed: number}[]}
  */
+export function docStatuses(root) {
+  const { archiveRoot } = readConfig(root);
+  const byDoc = new Map();
+  for (const t of list(root, { status: 'all' })) {
+    for (const doc of t.docs) {
+      if (!byDoc.has(doc)) byDoc.set(doc, { doc, open: 0, doing: 0, closed: 0 });
+      byDoc.get(doc)[t.status]++;
+    }
+  }
+  return [...byDoc.values()]
+    .map(d => {
+      const total = d.open + d.doing + d.closed;
+      const archived = d.doc === archiveRoot || d.doc.startsWith(archiveRoot.replace(/\/*$/, '/'));
+      const status = archived ? 'archived' : d.doing > 0 ? 'doing' : d.open > 0 ? 'todo' : 'done';
+      return { ...d, total, status };
+    })
+    .sort((a, b) => a.doc.localeCompare(b.doc));
+}
+
+/** Docs whose tickets are all closed — the ones worth *offering* to archive. */
 export function orphanedDocs(root) {
-  const openDocs = new Set(list(root, { status: ['open', 'doing'] }).flatMap(t => t.docs));
-  const closedDocs = new Set(list(root, { status: ['closed'] }).flatMap(t => t.docs));
-  return [...closedDocs].filter(d => !openDocs.has(d));
+  return docStatuses(root)
+    .filter(d => d.status === 'done')
+    .map(d => d.doc);
+}
+
+/**
+ * Move a document into the archive. The only time this tool ever moves a file
+ * that is not a ticket.
+ *
+ * Refuses while any referencing ticket is still open or in progress: one
+ * document usually spawns several tickets, and burying four of them to file
+ * away the fifth is not a trade anyone would accept knowingly.
+ *
+ * Rewrites the `docs:` pointer in every ticket that referenced it, because a
+ * move that leaves dangling references turns the index into a liability within
+ * a month.
+ *
+ * @returns {{from: string, to: string, updated: string[], danglingLinks: string[]}}
+ */
+export function archiveDoc(root, docPath, { git = true, force = false } = {}) {
+  const { archiveRoot } = readConfig(root);
+  const from = path.relative(root, path.resolve(root, docPath)).split(path.sep).join('/');
+  const abs = path.join(root, from);
+  if (!fs.existsSync(abs)) throw new Error(`no such document: ${from}`);
+  if (fs.statSync(abs).isDirectory()) throw new Error(`${from} is a directory — archive documents, not folders`);
+
+  const blocking = force ? [] : list(root, { status: ['open', 'doing'] }).filter(t => t.docs.includes(from));
+  if (blocking.length) {
+    throw new Error(
+      `${from} still has ${blocking.length} unfinished ticket(s):\n` +
+        blocking.map(t => `  ${t.id} [${t.status}] ${t.title}`).join('\n') +
+        `\nclose them first, or run with --force if the document is obsolete anyway`
+    );
+  }
+
+  const to = path.posix.join(archiveRoot, path.basename(from));
+  if (fs.existsSync(path.join(root, to))) throw new Error(`${to} already exists — rename one of them first`);
+  fs.mkdirSync(path.join(root, archiveRoot), { recursive: true });
+
+  // git mv keeps the file's history attached; fall back for non-git trees.
+  let moved = false;
+  if (git) {
+    const r = spawnSync('git', ['mv', from, to], { cwd: root });
+    moved = r.status === 0;
+  }
+  if (!moved) fs.renameSync(abs, path.join(root, to));
+
+  const updated = [];
+  for (const t of list(root, { status: 'all' })) {
+    if (!t.docs.includes(from)) continue;
+    const file = path.join(root, t.file);
+    const { meta, body } = parseTicketFile(fs.readFileSync(file, 'utf8'));
+    meta.docs = (Array.isArray(meta.docs) ? meta.docs : []).map(d => (d === from ? to : d));
+    fs.writeFileSync(file, serializeTicket(meta, body));
+    updated.push(t.id);
+  }
+
+  return { from, to, updated, danglingLinks: findReferences(root, from) };
+}
+
+/**
+ * Other documents that still link to a path we just moved.
+ *
+ * ponytail: reports, does not rewrite. Auto-editing prose is how you end up
+ * mangling a code block that happened to contain the path. Scans the top-level
+ * directory that docsRoot lives in — widen it if that ever proves too narrow.
+ */
+export function findReferences(root, target) {
+  const { docsRoot } = readConfig(root);
+  const scanDir = path.join(root, docsRoot.split('/')[0]);
+  if (!fs.existsSync(scanDir)) return [];
+  const hits = [];
+  const walk = dir => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+      const p = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(p);
+      else if (entry.name.endsWith('.md') && fs.readFileSync(p, 'utf8').includes(path.basename(target))) {
+        const rel = path.relative(root, p).split(path.sep).join('/');
+        if (rel !== target) hits.push(rel);
+      }
+    }
+  };
+  walk(scanDir);
+  return hits;
+}
+
+/**
+ * Create a document under `docsRoot` and return its repo-relative path.
+ *
+ * Deliberately thin: a heading and three sections. If a plan needs more shape
+ * than that, it needs a human, not a generator. Short notes belong in the
+ * ticket body — this is for the ones other people will read.
+ */
+export function createDoc(root, { title, dir, slug: name }) {
+  if (!title || !String(title).trim()) throw new Error('title is required');
+  const { docsRoot } = readConfig(root);
+  const target = (dir || docsRoot).replace(/\/*$/, '');
+  const rel = path.posix.join(target, `${name || slug(title)}.md`);
+  const abs = path.join(root, rel);
+  if (fs.existsSync(abs)) throw new Error(`${rel} already exists`);
+  fs.mkdirSync(path.dirname(abs), { recursive: true });
+  fs.writeFileSync(
+    abs,
+    `# ${String(title).trim()}\n\n> ${new Date().toISOString().slice(0, 10)}\n\n## 背景 / Why\n\n\n## 方案 / What\n\n\n## 待办 / Open questions\n\n\n`
+  );
+  return rel;
+}
+
+/** Delete a ticket outright. For mistakes and duplicates — closing is not this. */
+export function remove(root, id) {
+  const t = get(root, id);
+  fs.unlinkSync(path.join(root, t.file));
+  return t;
 }
