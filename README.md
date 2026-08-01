@@ -91,12 +91,12 @@ ticket docs                                   # every linked doc + its status
 ```
 
 ```
-[进行中] docs/plans/db-migration.md  1/3 closed
-[已完成] docs/plans/search.md        4/4 closed  → ticket archive docs/plans/search.md
+doing  docs/plans/db-migration.md  1/3 closed
+done   docs/plans/search.md        4/4 closed  → ticket archive docs/plans/search.md
 ```
 
-未开始 → 进行中 → 已完成 → 已归档. A document is only ever *moved* once, when
-you archive it:
+`todo` → `doing` → `done` → `archived`. A document is only ever *moved* once,
+when you archive it:
 
 ```bash
 ticket archive docs/plans/search.md
@@ -143,8 +143,9 @@ that server-side file is the one piece of coupling that cannot be removed, and
 it has been made as small as it can be.
 
 `examples/nextjs-tab/TicketBoard.tsx` is a complete board in one file: three
-columns, search, create, open/close. Copy it, restyle it, or throw it away and
-render the JSON your own way.
+columns, search, create, open/close/delete, and a panel of linked documents
+with their derived status. Copy it, restyle it, or throw it away and render the
+JSON your own way. It expects Tailwind — without it you get unstyled markup.
 
 **Full protocol: [SPEC.md](SPEC.md)** — file layout, frontmatter fields, JSON
 guarantees, and what is allowed to change between versions.

@@ -1,6 +1,6 @@
 {
   "name": "unticked",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Tickets as markdown files in your repo. A CLI you run, a JSON contract anyone can build a client on.",
   "license": "MIT",
   "type": "module",

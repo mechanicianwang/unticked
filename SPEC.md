@@ -74,10 +74,10 @@ created: 2026-08-01T06:30:13Z
 closed: 2026-08-04T11:02:55Z
 ---
 
-## 怎么做 / How
+## How
 ...
 
-## 怎么算做完 / Done when
+## Done when
 ...
 ```
 
@@ -171,7 +171,7 @@ Identical shape in all three.
       "refs": [],
       "created": "2026-08-01T06:30:13Z",
       "closed": null,
-      "body": "## 怎么做 / How\n...",
+      "body": "## How\n...",
       "file": ".tickets/open/T-0012-add-quota-tests.md"
     }
   ],

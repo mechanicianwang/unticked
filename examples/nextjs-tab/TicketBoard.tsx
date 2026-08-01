@@ -32,9 +32,9 @@ const PRIORITY_STYLE: Record<string, string> = {
 };
 
 const COLUMNS = [
-  { status: 'open', label: '待办' },
-  { status: 'doing', label: '进行中' },
-  { status: 'closed', label: '已关闭' },
+  { status: 'open', label: 'To do' },
+  { status: 'doing', label: 'In progress' },
+  { status: 'closed', label: 'Closed' },
 ] as const;
 
 /** Derived from a doc's tickets by the server — never stored. */
@@ -45,13 +45,6 @@ type DocStatus = {
   open: number;
   doing: number;
   closed: number;
-};
-
-const DOC_LABEL: Record<DocStatus['status'], string> = {
-  todo: '未开始',
-  doing: '进行中',
-  done: '已完成',
-  archived: '已归档',
 };
 
 const DOC_STYLE: Record<DocStatus['status'], string> = {
@@ -105,12 +98,12 @@ export default function TicketBoard({ endpoint = '/api/tickets' }: { endpoint?: 
       <div className="flex flex-wrap gap-3 items-center">
         <h1 className="text-xl font-bold">Tickets</h1>
         <span className="text-sm text-gray-500">
-          {tickets.filter(t => t.status !== 'closed').length} 项未完成
+          {tickets.filter(t => t.status !== 'closed').length} open
         </span>
         <input
           value={q}
           onChange={e => setQ(e.target.value)}
-          placeholder="搜索标题 / 正文 / 标签 / 文档"
+          placeholder="Search title, body, tags, docs"
           className="ml-auto w-64 px-3 py-1.5 rounded-lg bg-gray-900 border border-gray-800 text-sm outline-none focus:border-blue-500/50"
         />
       </div>
@@ -127,11 +120,11 @@ export default function TicketBoard({ endpoint = '/api/tickets' }: { endpoint?: 
         <input
           value={title}
           onChange={e => setTitle(e.target.value)}
-          placeholder="新建 ticket：一句话说清要做什么"
+          placeholder="New ticket — one line on what needs doing"
           className="flex-1 px-3 py-2 rounded-lg bg-gray-900 border border-gray-800 text-sm outline-none focus:border-blue-500/50"
         />
         <button type="submit" className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-sm font-medium">
-          新建
+          New
         </button>
       </form>
 
@@ -140,12 +133,12 @@ export default function TicketBoard({ endpoint = '/api/tickets' }: { endpoint?: 
       {docs.length > 0 && (
         <section className="rounded-lg bg-gray-900 border border-gray-800 p-3 space-y-1.5">
           <h2 className="text-sm font-semibold text-gray-400">
-            关联文档 <span className="text-gray-600">{docs.length}</span>
-            <span className="ml-2 font-normal text-[11px] text-gray-600">状态由该文档的 ticket 推导，不单独存储</span>
+            Linked documents <span className="text-gray-600">{docs.length}</span>
+            <span className="ml-2 font-normal text-[11px] text-gray-600">status derived from tickets, never stored</span>
           </h2>
           {docs.map(d => (
             <div key={d.doc} className="flex items-center gap-2 text-xs">
-              <span className={`w-12 shrink-0 ${DOC_STYLE[d.status]}`}>{DOC_LABEL[d.status]}</span>
+              <span className={`w-16 shrink-0 ${DOC_STYLE[d.status]}`}>{d.status}</span>
               <span className="font-mono text-gray-300 truncate" title={d.doc}>
                 {d.doc}
               </span>
@@ -155,13 +148,13 @@ export default function TicketBoard({ endpoint = '/api/tickets' }: { endpoint?: 
               {d.status === 'done' && (
                 <button
                   onClick={() => {
-                    if (confirm(`归档 ${d.doc}？\n文件会移到归档目录，引用它的 ticket 会自动改指向新路径。`)) {
+                    if (confirm(`Archive ${d.doc}?\nThe file moves to the archive directory and every ticket that references it is repointed.`)) {
                       void write({ action: 'archive', doc: d.doc });
                     }
                   }}
                   className="ml-auto shrink-0 px-2 py-0.5 rounded bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30"
                 >
-                  归档
+                  Archive
                 </button>
               )}
             </div>
@@ -171,7 +164,7 @@ export default function TicketBoard({ endpoint = '/api/tickets' }: { endpoint?: 
 
       {orphanDocs.length > 0 && (
         <div className="px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-sm text-amber-300">
-          这些文档的 ticket 已全部关闭，可以归档：{orphanDocs.join('、')}
+          All tickets closed — safe to archive: {orphanDocs.join(', ')}
         </div>
       )}
 
@@ -216,27 +209,27 @@ export default function TicketBoard({ endpoint = '/api/tickets' }: { endpoint?: 
                   <div className="flex gap-1.5 text-xs">
                     {t.status !== 'doing' && t.status !== 'closed' && (
                       <button onClick={() => write({ action: 'status', id: t.id, status: 'doing' })} className="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700">
-                        开始
+                        Start
                       </button>
                     )}
                     {t.status !== 'closed' ? (
                       <button onClick={() => write({ action: 'status', id: t.id, status: 'closed' })} className="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700">
-                        关闭
+                        Close
                       </button>
                     ) : (
                       <button onClick={() => write({ action: 'status', id: t.id, status: 'open' })} className="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700">
-                        重开
+                        Reopen
                       </button>
                     )}
                     <button
                       onClick={() => {
-                        if (confirm(`删除 ${t.id}「${t.title}」？\n这不是关闭，是彻底删掉，不可恢复。`)) {
+                        if (confirm(`Delete ${t.id} "${t.title}"?\nThis is not closing — the ticket is gone for good.`)) {
                           void write({ action: 'remove', id: t.id });
                         }
                       }}
                       className="px-2 py-1 rounded text-gray-600 hover:bg-red-500/15 hover:text-red-400"
                     >
-                      删除
+                      Delete
                     </button>
                     <span className="ml-auto self-center font-mono text-[10px] text-gray-600">{t.file}</span>
                   </div>

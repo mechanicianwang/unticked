@@ -81,8 +81,8 @@ const HELP = `unticked — tickets as markdown files in your repo
   ticket rm <id> --yes                 delete a ticket (closing is not this)
 
   ticket docs [--json]                 every linked doc + its derived status
-      status is computed from the doc's tickets, never stored:
-      未开始 → 进行中 → 已完成 → 已归档
+      computed from the doc's tickets, never stored:
+      todo → doing → done → archived
   ticket doc new "<title>" [--dir <path>] [--no-ticket]
                                        write a doc under docsRoot, link a ticket
   ticket archive <doc> [--force]       move a doc to archiveRoot and repoint
@@ -195,11 +195,13 @@ try {
         console.log(dim('no ticket references a document yet — use `ticket new --docs <path>`'));
         break;
       }
-      const label = { todo: '未开始', doing: '进行中', done: '已完成', archived: '已归档' };
+      // Printed labels are the JSON status values verbatim — one name per
+      // concept, so nobody has to keep a mapping in their head.
+      const width = Math.max(...docs.map(d => d.status.length));
       for (const d of docs) {
         const counts = dim(`${d.closed}/${d.total} closed`);
         const hint = d.status === 'done' ? tint('  → ticket archive ' + d.doc, 'p1') : '';
-        console.log(`[${label[d.status]}] ${d.doc}  ${counts}${hint}`);
+        console.log(`${d.status.padEnd(width)}  ${d.doc}  ${counts}${hint}`);
       }
       break;
     }

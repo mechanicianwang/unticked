@@ -298,11 +298,11 @@ export function create(root, { title, body = '', docs = [], tags = [], priority 
   return toTicket(root, 'open', file);
 }
 
-const DEFAULT_BODY = `## 怎么做 / How
+const DEFAULT_BODY = `## How
 
 -
 
-## 怎么算做完 / Done when
+## Done when
 
 -
 `;
@@ -474,7 +474,7 @@ export function createDoc(root, { title, dir, slug: name }) {
   fs.mkdirSync(path.dirname(abs), { recursive: true });
   fs.writeFileSync(
     abs,
-    `# ${String(title).trim()}\n\n> ${new Date().toISOString().slice(0, 10)}\n\n## 背景 / Why\n\n\n## 方案 / What\n\n\n## 待办 / Open questions\n\n\n`
+    `# ${String(title).trim()}\n\n> ${new Date().toISOString().slice(0, 10)}\n\n## Why\n\n\n## What\n\n\n## Open questions\n\n\n`
   );
   return rel;
 }
