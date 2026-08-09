@@ -90,11 +90,13 @@ ticket ui --port 4000 --no-open
 
 - **Kanban** for open / doing / closed — create, start, close, reopen, delete
 - **Cream light + ink dark themes** — toggle in the header; preference is remembered
+- **English / 中文** — language toggle in the header (remembers your choice;
+  defaults from the browser locale)
 - **Auto-refresh** while the tab is open (default every 4s; pauses when hidden;
   reloads immediately after writes)
-- **Linked documents** on the right — collapsed slim rail by default, click to
-  expand; open a path to read the file in the main pane with markdown/HTML
-  rendering, then **Back** (or browser back) to return to the board
+- **Linked documents** on the right — collapsed by default, open from the header;
+  click a path to read the file in the main pane with markdown/HTML rendering,
+  then **Back** (or browser back) to return to the board
 - **Writes** go through the same JSON contract as `ticket ls --json`
 - Binds to **127.0.0.1** by default — not a public SaaS surface
 

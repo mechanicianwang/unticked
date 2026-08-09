@@ -1,13 +1,122 @@
 /**
  * unticked board client.
  * Auto-refreshes while the tab is visible; reloads immediately after writes.
+ * UI strings: English + 中文 (toggle in the header).
  */
 
-const COLUMNS = [
-  { status: 'open', label: 'To do' },
-  { status: 'doing', label: 'In progress' },
-  { status: 'closed', label: 'Closed' },
-];
+const I18N = {
+  en: {
+    subtitle: 'tickets as files',
+    subtitleRo: 'read-only board',
+    search: 'Search',
+    searchPlaceholder: 'Filter title, body, tags, docs…',
+    liveTitle: 'Auto-refreshes while this tab is open',
+    connecting: 'connecting…',
+    refreshing: 'refreshing…',
+    offline: 'offline',
+    updated: 'updated {ago}',
+    justNow: 'just now',
+    secondsAgo: '{n}s ago',
+    minutesAgo: '{n}m ago',
+    hoursAgo: '{n}h ago',
+    docs: 'Docs',
+    docsShow: 'Show linked documents',
+    docsHide: 'Hide linked documents',
+    docsLinked: 'Linked documents',
+    docsSub: 'Status from tickets · never stored',
+    docsEmpty: 'No document links yet.',
+    themeToggle: 'Toggle light / dark',
+    titlePlaceholder: 'What needs doing — one line',
+    priority: 'Priority',
+    add: 'Add',
+    hint: 'Closes with the files. Commit when you are done.',
+    hintRo: 'Read-only mode — open the board with write access to edit.',
+    footStats: '{open} open · {total} total',
+    footData: 'data lives in <code>.tickets/</code>',
+    colOpen: 'To do',
+    colDoing: 'In progress',
+    colClosed: 'Closed',
+    emptyOpen: 'Nothing waiting',
+    emptyDoing: 'Nothing in flight',
+    emptyClosed: 'Nothing closed yet',
+    start: 'Start',
+    backStatus: 'Back',
+    close: 'Close',
+    reopen: 'Reopen',
+    delete: 'Delete',
+    archive: 'Archive',
+    openDoc: 'Open {path}',
+    back: '← Back',
+    loading: 'Loading…',
+    failedOpen: 'Failed to open',
+    emptyBody: '(empty body)',
+    confirmArchive: 'Archive {path}?\nFile moves to the archive directory; ticket docs: pointers are updated.',
+    confirmDelete: 'Delete {id}{title}?\nThis is not closing — the ticket is gone for good.',
+    confirmDeleteShort: 'Delete {id}?',
+    docMeta: '{kind} · {kb} KB · updated {time}',
+    langSwitchTo: '中文',
+    langTitle: 'Switch to Chinese',
+  },
+  zh: {
+    subtitle: '票据即文件',
+    subtitleRo: '只读看板',
+    search: '搜索',
+    searchPlaceholder: '筛选标题、正文、标签、文档…',
+    liveTitle: '标签页打开时自动刷新',
+    connecting: '连接中…',
+    refreshing: '刷新中…',
+    offline: '离线',
+    updated: '{ago}更新',
+    justNow: '刚刚',
+    secondsAgo: '{n} 秒前',
+    minutesAgo: '{n} 分钟前',
+    hoursAgo: '{n} 小时前',
+    docs: '文档',
+    docsShow: '显示关联文档',
+    docsHide: '隐藏关联文档',
+    docsLinked: '关联文档',
+    docsSub: '状态由票据推导 · 从不落盘',
+    docsEmpty: '还没有关联文档。',
+    themeToggle: '切换浅色 / 深色',
+    titlePlaceholder: '要做什么 — 一句话',
+    priority: '优先级',
+    add: '添加',
+    hint: '和代码一起提交。做完了就 commit。',
+    hintRo: '只读模式 — 需要可写权限才能编辑。',
+    footStats: '{open} 未关闭 · 共 {total}',
+    footData: '数据在 <code>.tickets/</code>',
+    colOpen: '待办',
+    colDoing: '进行中',
+    colClosed: '已关闭',
+    emptyOpen: '暂无待办',
+    emptyDoing: '暂无进行中',
+    emptyClosed: '暂无已关闭',
+    start: '开始',
+    backStatus: '退回',
+    close: '关闭',
+    reopen: '重开',
+    delete: '删除',
+    archive: '归档',
+    openDoc: '打开 {path}',
+    back: '← 返回',
+    loading: '加载中…',
+    failedOpen: '打开失败',
+    emptyBody: '（正文为空）',
+    confirmArchive: '归档 {path}？\n文件会移到归档目录，并更新相关票据的 docs: 指针。',
+    confirmDelete: '删除 {id}{title}？\n这不是关闭 — 票据会永久删除。',
+    confirmDeleteShort: '删除 {id}？',
+    docMeta: '{kind} · {kb} KB · 更新于 {time}',
+    langSwitchTo: 'EN',
+    langTitle: '切换到 English',
+  },
+};
+
+function detectLang() {
+  const saved = localStorage.getItem('unticked-lang');
+  if (saved === 'en' || saved === 'zh') return saved;
+  const nav = (navigator.language || '').toLowerCase();
+  return nav.startsWith('zh') ? 'zh' : 'en';
+}
 
 const state = {
   tickets: [],
@@ -24,9 +133,76 @@ const state = {
   docsOpen: localStorage.getItem('unticked-docs-open') === '1',
   view: 'board', // 'board' | 'doc'
   openDocPath: null,
+  lang: detectLang(),
 };
 
 const $ = id => document.getElementById(id);
+
+function t(key, vars) {
+  const table = I18N[state.lang] || I18N.en;
+  let s = table[key] ?? I18N.en[key] ?? key;
+  if (vars) {
+    for (const [k, v] of Object.entries(vars)) {
+      s = s.replaceAll(`{${k}}`, String(v));
+    }
+  }
+  return s;
+}
+
+function columns() {
+  return [
+    { status: 'open', label: t('colOpen') },
+    { status: 'doing', label: t('colDoing') },
+    { status: 'closed', label: t('colClosed') },
+  ];
+}
+
+/** Apply data-i18n* attributes on static markup. */
+function applyStaticI18n() {
+  document.documentElement.lang = state.lang === 'zh' ? 'zh-CN' : 'en';
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.getAttribute('data-i18n'));
+  });
+  document.querySelectorAll('[data-i18n-html]').forEach(el => {
+    el.innerHTML = t(el.getAttribute('data-i18n-html'));
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    el.setAttribute('placeholder', t(el.getAttribute('data-i18n-placeholder')));
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    el.setAttribute('title', t(el.getAttribute('data-i18n-title')));
+  });
+  document.querySelectorAll('[data-i18n-aria]').forEach(el => {
+    el.setAttribute('aria-label', t(el.getAttribute('data-i18n-aria')));
+  });
+
+  const langLabel = $('langBtnLabel');
+  const langBtn = $('langBtn');
+  if (langLabel) langLabel.textContent = t('langSwitchTo');
+  if (langBtn) langBtn.title = t('langTitle');
+
+  // Re-apply dynamic titles that depend on open state / readonly.
+  setDocsOpen(state.docsOpen);
+  const hint = $('hint');
+  if (hint) hint.textContent = state.readOnly ? t('hintRo') : t('hint');
+  const sub = $('subtitle');
+  if (sub) sub.textContent = state.readOnly ? t('subtitleRo') : t('subtitle');
+}
+
+function setLang(lang) {
+  state.lang = lang === 'zh' ? 'zh' : 'en';
+  localStorage.setItem('unticked-lang', state.lang);
+  applyStaticI18n();
+  render();
+  tickLiveLabel();
+}
+
+function initLang() {
+  applyStaticI18n();
+  $('langBtn')?.addEventListener('click', () => {
+    setLang(state.lang === 'zh' ? 'en' : 'zh');
+  });
+}
 
 // —— theme ————————————————————————————————————————————————————————————
 
@@ -35,7 +211,7 @@ function initTheme() {
   const preferred =
     saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   applyTheme(preferred);
-  $('themeBtn').addEventListener('click', () => {
+  $('themeBtn')?.addEventListener('click', () => {
     const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
     applyTheme(next);
     localStorage.setItem('unticked-theme', next);
@@ -51,25 +227,28 @@ function applyTheme(theme) {
 
 function setLive(kind, text) {
   const el = $('live');
+  if (!el) return;
   el.classList.remove('is-live', 'is-refreshing', 'is-error');
   if (kind) el.classList.add(kind);
-  $('liveText').textContent = text;
+  const liveText = $('liveText');
+  if (liveText) liveText.textContent = text;
 }
 
 function formatAgo(ts) {
   if (!ts) return '…';
   const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
-  if (s < 2) return 'just now';
-  if (s < 60) return `${s}s ago`;
+  if (s < 2) return t('justNow');
+  if (s < 60) return t('secondsAgo', { n: s });
   const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  return `${Math.floor(m / 60)}h ago`;
+  if (m < 60) return t('minutesAgo', { n: m });
+  return t('hoursAgo', { n: Math.floor(m / 60) });
 }
 
 function tickLiveLabel() {
   if (state.loading) return;
-  if ($('live').classList.contains('is-error')) return;
-  setLive('is-live', `updated ${formatAgo(state.lastOkAt)}`);
+  const live = $('live');
+  if (!live || live.classList.contains('is-error')) return;
+  setLive('is-live', t('updated', { ago: formatAgo(state.lastOkAt) }));
 }
 
 // —— api ——————————————————————————————————————————————————————————————
@@ -105,8 +284,8 @@ function fingerprintOf(data) {
 async function load({ silent = false } = {}) {
   if (state.loading) return;
   state.loading = true;
-  if (!silent) setLive('is-refreshing', 'refreshing…');
-  else if (state.lastOkAt) setLive('is-refreshing', `updated ${formatAgo(state.lastOkAt)}`);
+  if (!silent) setLive('is-refreshing', t('refreshing'));
+  else if (state.lastOkAt) setLive('is-refreshing', t('updated', { ago: formatAgo(state.lastOkAt) }));
 
   try {
     const data = await apiGet();
@@ -129,16 +308,14 @@ async function load({ silent = false } = {}) {
     if (titleInput) titleInput.disabled = state.readOnly;
     if (priorityInput) priorityInput.disabled = state.readOnly;
     const hint = $('hint');
-    if (state.readOnly && hint) {
-      hint.textContent = 'Read-only mode — open the board with write access to edit.';
-    }
+    if (hint) hint.textContent = state.readOnly ? t('hintRo') : t('hint');
 
     if (changed || !silent) render();
     hideBanner();
-    setLive('is-live', `updated ${formatAgo(state.lastOkAt)}`);
+    setLive('is-live', t('updated', { ago: formatAgo(state.lastOkAt) }));
   } catch (err) {
     showBanner(err.message || String(err));
-    setLive('is-error', 'offline');
+    setLive('is-error', t('offline'));
   } finally {
     state.loading = false;
   }
@@ -200,9 +377,9 @@ function render() {
   renderBoard();
   const open = state.tickets.filter(t => t.status !== 'closed').length;
   const foot = $('footStats');
-  if (foot) foot.textContent = `${open} open · ${state.tickets.length} total`;
+  if (foot) foot.textContent = t('footStats', { open, total: state.tickets.length });
   const sub = $('subtitle');
-  if (sub) sub.textContent = state.readOnly ? 'read-only board' : 'tickets as files';
+  if (sub) sub.textContent = state.readOnly ? t('subtitleRo') : t('subtitle');
 }
 
 function setDocsOpen(open) {
@@ -214,8 +391,10 @@ function setDocsOpen(open) {
   if (btn) {
     btn.setAttribute('aria-expanded', state.docsOpen ? 'true' : 'false');
     btn.classList.toggle('is-active', state.docsOpen);
-    btn.title = state.docsOpen ? 'Hide linked documents' : 'Show linked documents';
+    btn.title = state.docsOpen ? t('docsHide') : t('docsShow');
   }
+  const toggle = $('docsToggle');
+  if (toggle) toggle.title = t('docsHide');
 }
 
 function initDocsPanel() {
@@ -248,12 +427,12 @@ function renderDocs() {
       const active = state.openDocPath === d.doc ? ' is-active' : '';
       return `<li class="${active.trim()}">
         <span class="doc-status ${escapeHtml(d.status)}">${escapeHtml(d.status)}</span>
-        <button type="button" class="doc-path" data-open-doc="${escapeHtml(d.doc)}" title="Open ${escapeHtml(d.doc)}">${escapeHtml(d.doc)}</button>
+        <button type="button" class="doc-path" data-open-doc="${escapeHtml(d.doc)}" title="${escapeHtml(t('openDoc', { path: d.doc }))}">${escapeHtml(d.doc)}</button>
         <div class="doc-meta">
           <span class="muted">${d.closed}/${d.total}</span>
           ${
             canArchive
-              ? `<button type="button" class="btn ghost" data-archive="${escapeHtml(d.doc)}">Archive</button>`
+              ? `<button type="button" class="btn ghost" data-archive="${escapeHtml(d.doc)}">${escapeHtml(t('archive'))}</button>`
               : ''
           }
         </div>
@@ -272,57 +451,60 @@ function renderDocs() {
     btn.addEventListener('click', e => {
       e.stopPropagation();
       const doc = btn.getAttribute('data-archive');
-      if (!confirm(`Archive ${doc}?\nFile moves to the archive directory; ticket docs: pointers are updated.`)) return;
+      if (!confirm(t('confirmArchive', { path: doc }))) return;
       void write({ action: 'archive', doc });
     });
   });
 }
 
-function actionButtons(t) {
+function actionButtons(tkt) {
   if (state.readOnly) return '';
   const bits = [];
-  if (t.status === 'open') {
-    bits.push(`<button type="button" class="act" data-act="status" data-id="${t.id}" data-status="doing">Start</button>`);
+  if (tkt.status === 'open') {
+    bits.push(`<button type="button" class="act" data-act="status" data-id="${tkt.id}" data-status="doing">${escapeHtml(t('start'))}</button>`);
   }
-  if (t.status === 'doing') {
-    bits.push(`<button type="button" class="act" data-act="status" data-id="${t.id}" data-status="open">Back</button>`);
+  if (tkt.status === 'doing') {
+    bits.push(`<button type="button" class="act" data-act="status" data-id="${tkt.id}" data-status="open">${escapeHtml(t('backStatus'))}</button>`);
   }
-  if (t.status !== 'closed') {
-    bits.push(`<button type="button" class="act" data-act="status" data-id="${t.id}" data-status="closed">Close</button>`);
+  if (tkt.status !== 'closed') {
+    bits.push(`<button type="button" class="act" data-act="status" data-id="${tkt.id}" data-status="closed">${escapeHtml(t('close'))}</button>`);
   } else {
-    bits.push(`<button type="button" class="act" data-act="status" data-id="${t.id}" data-status="open">Reopen</button>`);
+    bits.push(`<button type="button" class="act" data-act="status" data-id="${tkt.id}" data-status="open">${escapeHtml(t('reopen'))}</button>`);
   }
-  bits.push(`<button type="button" class="act is-danger" data-act="remove" data-id="${t.id}">Delete</button>`);
+  bits.push(`<button type="button" class="act is-danger" data-act="remove" data-id="${tkt.id}">${escapeHtml(t('delete'))}</button>`);
   return bits.join('');
 }
 
 function renderBoard() {
   const board = $('board');
+  if (!board) return;
   const items = visibleTickets();
-  board.innerHTML = COLUMNS.map(col => {
-    const colItems = items.filter(t => t.status === col.status);
+  board.innerHTML = columns().map(col => {
+    const colItems = items.filter(tkt => tkt.status === col.status);
     const cards = colItems.length
       ? colItems
-          .map(t => {
+          .map(tkt => {
             const chips = [
-              ...t.tags.map(tag => `<span class="chip">#${escapeHtml(tag)}</span>`),
-              ...t.docs.map(
+              ...tkt.tags.map(tag => `<span class="chip">#${escapeHtml(tag)}</span>`),
+              ...tkt.docs.map(
                 d =>
                   `<button type="button" class="chip doc" data-open-doc="${escapeHtml(d)}" title="${escapeHtml(d)}">→ ${escapeHtml(d.split('/').pop())}</button>`
               ),
             ].join('');
-            return `<article class="ticket ${t.status === 'closed' ? 'is-closed' : ''}" data-id="${escapeHtml(t.id)}" data-prio="${escapeHtml(t.priority)}">
-              <button type="button" class="ticket-title" data-act="open" data-id="${escapeHtml(t.id)}">${escapeHtml(t.title)}</button>
+            return `<article class="ticket ${tkt.status === 'closed' ? 'is-closed' : ''}" data-id="${escapeHtml(tkt.id)}" data-prio="${escapeHtml(tkt.priority)}">
+              <button type="button" class="ticket-title" data-act="open" data-id="${escapeHtml(tkt.id)}">${escapeHtml(tkt.title)}</button>
               ${chips ? `<div class="chips">${chips}</div>` : ''}
               <div class="ticket-foot">
-                <span class="prio ${escapeHtml(t.priority)}">${escapeHtml(t.priority)}</span>
-                <span class="ticket-id">${escapeHtml(t.id)}</span>
-                <span class="ticket-actions">${actionButtons(t)}</span>
+                <span class="prio ${escapeHtml(tkt.priority)}">${escapeHtml(tkt.priority)}</span>
+                <span class="ticket-id">${escapeHtml(tkt.id)}</span>
+                <span class="ticket-actions">${actionButtons(tkt)}</span>
               </div>
             </article>`;
           })
           .join('')
-      : `<div class="empty">${col.status === 'open' ? 'Nothing waiting' : col.status === 'doing' ? 'Nothing in flight' : 'Nothing closed yet'}</div>`;
+      : `<div class="empty">${
+          col.status === 'open' ? t('emptyOpen') : col.status === 'doing' ? t('emptyDoing') : t('emptyClosed')
+        }</div>`;
 
     return `<section class="column" data-status="${col.status}">
       <div class="column-head">
@@ -347,8 +529,9 @@ function renderBoard() {
         return;
       }
       if (act === 'remove') {
-        const t = state.tickets.find(x => x.id === id);
-        if (!confirm(`Delete ${id}${t ? ` “${t.title}”` : ''}?\nThis is not closing — the ticket is gone for good.`)) return;
+        const tkt = state.tickets.find(x => x.id === id);
+        const titleBit = tkt ? ` “${tkt.title}”` : '';
+        if (!confirm(t('confirmDelete', { id, title: titleBit }))) return;
         void write({ action: 'remove', id });
       }
     });
@@ -387,7 +570,7 @@ function openDetail(id) {
     ),
     `<span class="chip doc" title="file">${escapeHtml(t.file)}</span>`,
   ].join('');
-  $('dBody').textContent = t.body || '(empty body)';
+  $('dBody').textContent = t.body || t('emptyBody');
 
   const actions = $('dActions');
   if (state.readOnly) {
@@ -401,7 +584,7 @@ function openDetail(id) {
         dialog.close();
         if (act === 'status') void write({ action: 'status', id: tid, status: el.getAttribute('data-status') });
         if (act === 'remove') {
-          if (!confirm(`Delete ${tid}?`)) return;
+          if (!confirm(t('confirmDeleteShort', { id: tid }))) return;
           void write({ action: 'remove', id: tid });
         }
       });
@@ -457,9 +640,12 @@ async function openDocument(docPath, { push = false } = {}) {
   const bodyEl = $('docViewBody');
   const loading = $('docViewLoading');
   if (pathEl) pathEl.textContent = docPath;
-  if (subEl) subEl.textContent = 'Loading…';
+  if (subEl) subEl.textContent = t('loading');
   if (bodyEl) bodyEl.innerHTML = '';
-  if (loading) loading.hidden = false;
+  if (loading) {
+    loading.hidden = false;
+    loading.textContent = t('loading');
+  }
 
   if (push) {
     const url = new URL(location.href);
@@ -474,13 +660,18 @@ async function openDocument(docPath, { push = false } = {}) {
 
     if (subEl) {
       const kb = (data.size / 1024).toFixed(1);
-      subEl.textContent = `${data.kind} · ${kb} KB · updated ${new Date(data.mtime).toLocaleString()}`;
+      const locale = state.lang === 'zh' ? 'zh-CN' : 'en';
+      subEl.textContent = t('docMeta', {
+        kind: data.kind,
+        kb,
+        time: new Date(data.mtime).toLocaleString(locale),
+      });
     }
     if (loading) loading.hidden = true;
     if (bodyEl) bodyEl.innerHTML = renderDocument(data);
   } catch (err) {
     if (loading) loading.hidden = true;
-    if (subEl) subEl.textContent = 'Failed to open';
+    if (subEl) subEl.textContent = t('failedOpen');
     if (bodyEl) {
       bodyEl.innerHTML = `<p class="doc-error">${escapeHtml(err.message || String(err))}</p>`;
     }
@@ -711,6 +902,7 @@ function initForms() {
 
 // —— boot —————————————————————————————————————————————————————————————
 
+initLang();
 initTheme();
 initForms();
 initDocsPanel();

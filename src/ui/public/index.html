@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
     <title>unticked</title>
-    <link rel="stylesheet" href="/styles.css?v=6" />
+    <link rel="stylesheet" href="/styles.css?v=9" />
   </head>
   <body>
     <div class="shell">
@@ -14,18 +14,18 @@
           <span class="mark" aria-hidden="true"></span>
           <div>
             <h1>unticked</h1>
-            <p class="sub" id="subtitle">tickets as files</p>
+            <p class="sub" id="subtitle" data-i18n="subtitle">tickets as files</p>
           </div>
         </div>
 
         <div class="top-actions">
           <label class="search-wrap">
-            <span class="sr-only">Search</span>
-            <input id="searchInput" type="search" placeholder="Filter title, body, tags, docs…" />
+            <span class="sr-only" data-i18n="search">Search</span>
+            <input id="searchInput" type="search" data-i18n-placeholder="searchPlaceholder" placeholder="Filter title, body, tags, docs…" />
           </label>
-          <div class="live" id="live" title="Auto-refreshes while this tab is open">
+          <div class="live" id="live" data-i18n-title="liveTitle" title="Auto-refreshes while this tab is open">
             <span class="live-dot" id="liveDot"></span>
-            <span id="liveText">connecting…</span>
+            <span id="liveText" data-i18n="connecting">connecting…</span>
           </div>
           <button
             type="button"
@@ -33,12 +33,22 @@
             id="docsBtn"
             aria-expanded="false"
             aria-controls="docsPanel"
+            data-i18n-title="docsShow"
             title="Linked documents"
           >
-            Docs
+            <span data-i18n="docs">Docs</span>
             <span class="docs-count-pill" id="docsBtnCount">0</span>
           </button>
-          <button type="button" class="icon-btn" id="themeBtn" aria-label="Toggle theme" title="Toggle light / dark">
+          <button
+            type="button"
+            class="lang-btn"
+            id="langBtn"
+            aria-label="Language"
+            title="中文 / English"
+          >
+            <span id="langBtnLabel">中文</span>
+          </button>
+          <button type="button" class="icon-btn" id="themeBtn" data-i18n-aria="themeToggle" data-i18n-title="themeToggle" aria-label="Toggle theme" title="Toggle light / dark">
             <span class="theme-icon light-only" aria-hidden="true">☾</span>
             <span class="theme-icon dark-only" aria-hidden="true">☀</span>
           </button>
@@ -54,19 +64,20 @@
                 <input
                   id="titleInput"
                   type="text"
+                  data-i18n-placeholder="titlePlaceholder"
                   placeholder="What needs doing — one line"
                   autocomplete="off"
                   maxlength="240"
                 />
-                <select id="priorityInput" aria-label="Priority" title="Priority">
+                <select id="priorityInput" data-i18n-aria="priority" data-i18n-title="priority" aria-label="Priority" title="Priority">
                   <option value="p0">p0</option>
                   <option value="p1">p1</option>
                   <option value="p2" selected>p2</option>
                   <option value="p3">p3</option>
                 </select>
-                <button type="submit" class="btn primary" id="createBtn">Add</button>
+                <button type="submit" class="btn primary" id="createBtn" data-i18n="add">Add</button>
               </form>
-              <p class="hint" id="hint">Closes with the files. Commit when you are done.</p>
+              <p class="hint" id="hint" data-i18n="hint">Closes with the files. Commit when you are done.</p>
             </section>
 
             <div id="banner" class="banner" hidden></div>
@@ -76,25 +87,25 @@
             <footer class="foot">
               <span id="footStats"></span>
               <span class="muted">·</span>
-              <span class="muted">data lives in <code>.tickets/</code></span>
+              <span class="muted" data-i18n-html="footData">data lives in <code>.tickets/</code></span>
             </footer>
           </div>
 
           <!-- Document reader: open via linked docs / ticket chips; Back returns to board -->
           <section class="doc-view card" id="docView" hidden>
             <header class="doc-view-bar">
-              <button type="button" class="btn" id="docBackBtn">← Back</button>
+              <button type="button" class="btn" id="docBackBtn" data-i18n="back">← Back</button>
               <div class="doc-view-meta">
                 <div class="doc-view-path" id="docViewPath"></div>
                 <div class="doc-view-sub muted" id="docViewSub"></div>
               </div>
             </header>
-            <div class="doc-view-loading muted" id="docViewLoading" hidden>Loading…</div>
+            <div class="doc-view-loading muted" id="docViewLoading" hidden data-i18n="loading">Loading…</div>
             <article class="doc-prose" id="docViewBody"></article>
           </section>
         </div>
 
-        <aside class="docs-col card" id="docsPanel" aria-label="Linked documents">
+        <aside class="docs-col card" id="docsPanel" data-i18n-aria="docsLinked" aria-label="Linked documents">
           <!-- Collapsed the panel is hidden entirely; #docsBtn in the header reopens it. -->
           <button
             type="button"
@@ -102,12 +113,13 @@
             id="docsToggle"
             aria-expanded="true"
             aria-controls="docsBody"
+            data-i18n-title="docsHide"
             title="Hide linked documents"
           >
             <span class="docs-toggle-expanded">
               <span class="docs-toggle-text">
-                <span class="docs-toggle-title">Linked documents</span>
-                <span class="docs-toggle-sub">Status from tickets · never stored</span>
+                <span class="docs-toggle-title" data-i18n="docsLinked">Linked documents</span>
+                <span class="docs-toggle-sub" data-i18n="docsSub">Status from tickets · never stored</span>
               </span>
               <span class="docs-count-pill" id="docsCount">0</span>
               <span class="docs-chevron" aria-hidden="true">✕</span>
@@ -116,7 +128,7 @@
 
           <div class="docs-body" id="docsBody">
             <ul id="docsList" class="docs-list"></ul>
-            <p class="docs-empty muted" id="docsEmpty" hidden>No document links yet.</p>
+            <p class="docs-empty muted" id="docsEmpty" hidden data-i18n="docsEmpty">No document links yet.</p>
           </div>
         </aside>
       </div>
@@ -129,7 +141,7 @@
             <div class="dialog-id" id="dId"></div>
             <h2 id="dTitle"></h2>
           </div>
-          <button type="submit" class="icon-btn" value="cancel" aria-label="Close">✕</button>
+          <button type="submit" class="icon-btn" value="cancel" data-i18n-aria="close" aria-label="Close">✕</button>
         </header>
         <div class="dialog-meta" id="dMeta"></div>
         <pre class="dialog-body" id="dBody"></pre>
@@ -137,6 +149,6 @@
       </form>
     </dialog>
 
-    <script src="/app.js?v=6" type="module"></script>
+    <script src="/app.js?v=7" type="module"></script>
   </body>
 </html>

@@ -78,6 +78,11 @@
   box-sizing: border-box;
 }
 
+html {
+  /* Base was browser-default ~16px; keep rem-based UI comfortably readable. */
+  font-size: 18.5px;
+}
+
 html,
 body {
   margin: 0;
@@ -86,12 +91,13 @@ body {
 
 body {
   font-family: var(--sans);
+  font-size: 1rem;
   color: var(--ink);
   background:
     radial-gradient(1200px 600px at 10% -10%, var(--accent-soft), transparent 55%),
     radial-gradient(900px 500px at 100% 0%, rgba(74, 109, 140, 0.06), transparent 50%),
     var(--bg);
-  line-height: 1.45;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -106,9 +112,10 @@ code {
 }
 
 .shell {
-  width: min(1440px, calc(100% - 2rem));
+  /* Use almost the full viewport; only a slim gutter on each side. */
+  width: min(1760px, calc(100% - 1rem));
   margin: 0 auto;
-  padding: 1.75rem 0 3rem;
+  padding: 1.25rem 0.25rem 2.5rem;
 }
 
 /* Main board + right docs column. Closed = not rendered; #docsBtn reopens it. */
@@ -120,7 +127,7 @@ code {
 }
 
 .workspace[data-docs-open='true'] {
-  grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
 }
 
 .workspace:not([data-docs-open='true']) .docs-col {
@@ -234,6 +241,30 @@ code {
   background: var(--accent-soft);
   border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
   color: var(--accent-ink);
+}
+
+.lang-btn {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-soft);
+  border-radius: 0.7rem;
+  height: 2.25rem;
+  min-width: 2.75rem;
+  padding: 0 0.55rem;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.lang-btn:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+  background: var(--surface-2);
 }
 
 .live {
