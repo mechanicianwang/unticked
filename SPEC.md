@@ -234,7 +234,17 @@ const open = list(root, { status: 'open', tag: 'seo' });
 
 Same functions the CLI calls. No subprocess.
 
-### c. HTTP adapter — web clients
+### c. Built-in board — `ticket ui`
+
+For humans who just want to look: `ticket ui` starts a localhost server that
+serves a static board and the same JSON API. Default bind is `127.0.0.1:3847`.
+The board auto-refreshes while the tab is visible. Optional flags:
+`--port`, `--host`, `--root`, `--read-only`, `--poll <ms>`, `--no-open`.
+
+This is optional chrome around the file store. The CLI and adapters keep working
+if you never run it.
+
+### d. HTTP adapter — embed in your own app
 
 A browser cannot read `.tickets/`, so a web client needs one server-side file.
 This is the only unavoidable coupling, and it is about twenty lines:

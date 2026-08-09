@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>unticked</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="top">
+        <div class="brand">
+          <span class="mark" aria-hidden="true"></span>
+          <div>
+            <h1>unticked</h1>
+            <p class="sub" id="subtitle">tickets as files</p>
+          </div>
+        </div>
+
+        <div class="top-actions">
+          <div class="live" id="live" title="Auto-refreshes while this tab is open">
+            <span class="live-dot" id="liveDot"></span>
+            <span id="liveText">connecting…</span>
+          </div>
+          <button type="button" class="icon-btn" id="themeBtn" aria-label="Toggle theme" title="Toggle light / dark">
+            <span class="theme-icon light-only" aria-hidden="true">☾</span>
+            <span class="theme-icon dark-only" aria-hidden="true">☀</span>
+          </button>
+        </div>
+      </header>
+
+      <section class="composer card">
+        <form id="createForm" class="composer-row">
+          <input
+            id="titleInput"
+            type="text"
+            placeholder="What needs doing — one line"
+            autocomplete="off"
+            maxlength="240"
+          />
+          <select id="priorityInput" aria-label="Priority" title="Priority">
+            <option value="p0">p0</option>
+            <option value="p1">p1</option>
+            <option value="p2" selected>p2</option>
+            <option value="p3">p3</option>
+          </select>
+          <button type="submit" class="btn primary" id="createBtn">Add</button>
+        </form>
+        <div class="composer-meta">
+          <label class="search-wrap">
+            <span class="sr-only">Search</span>
+            <input id="searchInput" type="search" placeholder="Filter title, body, tags, docs…" />
+          </label>
+          <p class="hint" id="hint">Closes with the files. Commit when you are done.</p>
+        </div>
+      </section>
+
+      <div id="banner" class="banner" hidden></div>
+
+      <section class="docs card" id="docsPanel" hidden>
+        <div class="docs-head">
+          <h2>Linked documents</h2>
+          <span class="muted" id="docsCount"></span>
+        </div>
+        <ul id="docsList" class="docs-list"></ul>
+      </section>
+
+      <main class="board" id="board" aria-live="polite"></main>
+
+      <footer class="foot">
+        <span id="footStats"></span>
+        <span class="muted">·</span>
+        <span class="muted">data lives in <code>.tickets/</code></span>
+      </footer>
+    </div>
+
+    <dialog id="detailDialog" class="dialog">
+      <form method="dialog" class="dialog-inner">
+        <header class="dialog-head">
+          <div>
+            <div class="dialog-id" id="dId"></div>
+            <h2 id="dTitle"></h2>
+          </div>
+          <button type="submit" class="icon-btn" value="cancel" aria-label="Close">✕</button>
+        </header>
+        <div class="dialog-meta" id="dMeta"></div>
+        <pre class="dialog-body" id="dBody"></pre>
+        <div class="dialog-actions" id="dActions"></div>
+      </form>
+    </dialog>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

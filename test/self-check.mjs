@@ -177,5 +177,52 @@ for (const k of ['id', 'title', 'status', 'priority', 'tags', 'docs', 'created',
 }
 assert.equal(JSON.parse(cli('show', b.id, '--json')).ticket.id, b.id);
 
+// --- local web board (ticket ui) --------------------------------------------
+{
+  const { startUiServer } = await import('../src/ui/server.js');
+  const server = await startUiServer({ root, port: 0, host: '127.0.0.1', readOnly: false, pollMs: 2000 });
+  try {
+    const base = server.url.replace(/\/$/, '');
+    const page = await fetch(base + '/');
+    assert.equal(page.status, 200);
+    assert.match(await page.text(), /unticked/, 'board HTML is served');
+
+    const css = await fetch(base + '/styles.css');
+    assert.equal(css.status, 200);
+
+    const list = await fetch(base + '/api/tickets?status=all');
+    const payload = await list.json();
+    assert.equal(list.status, 200);
+    assert.equal(payload.schemaVersion, core.SCHEMA_VERSION);
+    assert.ok(Array.isArray(payload.tickets));
+    assert.equal(payload.readOnly, false);
+    assert.equal(payload.pollMs, 2000);
+
+    const created = await fetch(base + '/api/tickets', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'create', title: 'from ui server', priority: 'p1' }),
+    });
+    const createdBody = await created.json();
+    assert.equal(created.status, 200);
+    assert.match(createdBody.ticket.id, /^T-/);
+    assert.equal(core.get(root, createdBody.ticket.id).title, 'from ui server');
+
+    const ro = await startUiServer({ root, port: 0, host: '127.0.0.1', readOnly: true });
+    try {
+      const blocked = await fetch(ro.url.replace(/\/$/, '') + '/api/tickets', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'create', title: 'nope' }),
+      });
+      assert.equal(blocked.status, 403);
+    } finally {
+      await ro.close();
+    }
+  } finally {
+    await server.close();
+  }
+}
+
 fs.rmSync(root, { recursive: true, force: true });
 console.log('self-check ok');

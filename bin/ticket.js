@@ -15,6 +15,7 @@ import * as core from '../src/core.js';
 const argv = process.argv.slice(2);
 const cmd = argv.shift();
 
+
 function flags(args) {
   const out = { _: [] };
   for (let i = 0; i < args.length; i++) {
@@ -90,13 +91,21 @@ const HELP = `unticked — tickets as markdown files in your repo
 
   ticket hook install                  auto-close on "Closes T-12" commits
 
+  ticket ui [opts]                     open the local web board (localhost)
+      --port <n>                       default 3847
+      --host <addr>                    default 127.0.0.1
+      --root <path>                    repo with .tickets/ (default: cwd)
+      --read-only                      refuse writes from the board
+      --poll <ms>                      client refresh interval (default 4000)
+      --no-open                        do not open a browser
+
 ids are random (T-k7m2qx) so parallel branches never collide. Any unique
 prefix works, like a short git sha: "ticket close k7m" is enough.
 `;
 
 const root = () => core.requireRoot();
 
-try {
+async function main() {
   switch (cmd) {
     case 'init': {
       const f = flags(argv);
@@ -255,6 +264,29 @@ try {
       break;
     }
 
+    case 'ui': {
+      const f = flags(argv);
+      const { startUiServer } = await import('../src/ui/server.js');
+      const port = f.port !== undefined && f.port !== true ? Number(f.port) : 3847;
+      const pollMs = f.poll !== undefined && f.poll !== true ? Number(f.poll) : 4000;
+      if (!Number.isFinite(port) || port < 0 || port > 65535) die('invalid --port');
+      if (!Number.isFinite(pollMs) || pollMs < 500) die('--poll must be >= 500 ms');
+      const rootPath = typeof f.root === 'string' ? f.root : process.cwd();
+      const server = await startUiServer({
+        root: rootPath,
+        port,
+        host: typeof f.host === 'string' ? f.host : '127.0.0.1',
+        readOnly: !!f['read-only'],
+        pollMs,
+      });
+      console.log(`${bold('unticked')} board  ${server.url}`);
+      console.log(dim(`root ${server.root}${server.readOnly ? '  (read-only)' : ''}`));
+      console.log(dim('auto-refreshes while the tab is open · Ctrl+C to stop'));
+      if (f.open !== false && !f['no-open']) openBrowser(server.url);
+      await new Promise(() => {}); // keep process alive until SIGINT
+      break;
+    }
+
     case 'help':
     case undefined:
     case '--help':
@@ -272,9 +304,9 @@ try {
     default:
       die(`unknown command: ${cmd}\n\n${HELP}`);
   }
-} catch (err) {
-  die(err.message);
 }
+
+main().catch(err => die(err.message || String(err)));
 
 /**
  * The closing trigger. Without this, tickets rot exactly like the markdown
@@ -304,4 +336,16 @@ exit 0
   fs.mkdirSync(path.dirname(hookPath), { recursive: true });
   fs.writeFileSync(hookPath, body, { mode: 0o755 });
   console.log(`installed ${hookPath}\nnow "git commit -m 'fix thing (Closes T-12)'" closes T-12`);
+}
+
+/** Best-effort browser open — failure must not kill the server. */
+function openBrowser(url) {
+  try {
+    const platform = process.platform;
+    if (platform === 'darwin') spawnSync('open', [url], { stdio: 'ignore' });
+    else if (platform === 'win32') spawnSync('cmd', ['/c', 'start', '', url], { stdio: 'ignore' });
+    else spawnSync('xdg-open', [url], { stdio: 'ignore' });
+  } catch {
+    // ignore
+  }
 }

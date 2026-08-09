@@ -71,9 +71,30 @@ ticket rm k7m --yes               # delete outright — closing is not this
 
 ticket hook install               # the part that matters ↓
 git commit -m "fix redirect (Closes T-k7m2qx)"   # closes it automatically
+
+ticket ui                         # optional local board → http://127.0.0.1:3847
 ```
 
 Commit `.tickets/` along with your code. That is the whole system.
+
+### Local web board
+
+Optional. Same data as the CLI — a thin localhost server plus a board UI.
+Nothing to configure beyond having a `.tickets/` directory.
+
+```bash
+ticket ui                  # opens http://127.0.0.1:3847
+ticket ui --read-only      # view only
+ticket ui --port 4000 --no-open
+```
+
+- **Light (cream) and dark themes** — toggle in the header; preference is remembered
+- **Auto-refresh** while the tab is open (default every 4s; pauses when the tab is hidden)
+- **Writes** create / start / close / reopen / delete / archive through the same
+  JSON contract as `ticket ls --json`
+- Binds to **127.0.0.1** by default — not a public SaaS surface
+
+Stop with Ctrl+C. Without `ticket ui`, everything else still works.
 
 ### Documents
 
@@ -123,13 +144,14 @@ public and small, so the board can live wherever you already look.
 ticket ls --json    # stable, versioned JSON — every field always present
 ```
 
-Three ways in:
+Ways in:
 
 | you are writing | use | cost |
 |---|---|---|
+| just looking at the board | `ticket ui` | nothing |
 | TUI, editor plugin, CI job, AI agent | shell out to `ticket ... --json` | nothing |
 | a Node tool | `import { list, create } from 'unticked'` | nothing |
-| a web UI | `createTicketRoute()` from `unticked/adapters/next` | ~20 lines |
+| embed in your own app | `createTicketRoute()` from `unticked/adapters/next` | ~20 lines |
 
 ```ts
 // app/api/tickets/route.ts — the entire server side of a web client
