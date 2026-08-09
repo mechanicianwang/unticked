@@ -58,6 +58,39 @@ function safePublicPath(urlPath) {
   return abs;
 }
 
+/** Extensions the board is willing to open and render. */
+const DOC_EXTS = new Set(['.md', '.markdown', '.mdx', '.txt', '.html', '.htm', '.json', '.yml', '.yaml', '.csv']);
+const DOC_MAX_BYTES = 2 * 1024 * 1024;
+
+/**
+ * Resolve a repo-relative document path under `root` safely (no traversal).
+ * @returns {{ abs: string, rel: string, ext: string } | null}
+ */
+function safeRepoDoc(root, rawPath) {
+  if (!rawPath || typeof rawPath !== 'string') return null;
+  let rel = rawPath.trim().replace(/\\/g, '/');
+  // strip leading ./ and reject absolute / empty
+  rel = rel.replace(/^\.\/+/, '');
+  if (!rel || rel.startsWith('/') || rel.includes('\0')) return null;
+  if (rel.split('/').some(p => p === '..')) return null;
+
+  const abs = path.resolve(root, rel);
+  const rootAbs = path.resolve(root);
+  if (abs !== rootAbs && !abs.startsWith(rootAbs + path.sep)) return null;
+  if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) return null;
+
+  const ext = path.extname(abs).toLowerCase();
+  if (!DOC_EXTS.has(ext)) return null;
+  return { abs, rel: path.relative(rootAbs, abs).split(path.sep).join('/'), ext };
+}
+
+function kindForExt(ext) {
+  if (ext === '.md' || ext === '.markdown' || ext === '.mdx') return 'markdown';
+  if (ext === '.html' || ext === '.htm') return 'html';
+  if (ext === '.json') return 'json';
+  return 'text';
+}
+
 /**
  * @param {object} opts
  * @param {string} opts.root       repo root that contains .tickets/
@@ -134,6 +167,26 @@ export function startUiServer(opts) {
         }
       }
 
+      // Open a linked document for the in-board reader (markdown / text / html).
+      if (url.pathname === '/api/doc' && method === 'GET') {
+        const docPath = url.searchParams.get('path') || '';
+        const resolved = safeRepoDoc(root, docPath);
+        if (!resolved) return json(res, { error: 'document not found or not allowed' }, 404);
+        const stat = fs.statSync(resolved.abs);
+        if (stat.size > DOC_MAX_BYTES) {
+          return json(res, { error: `document too large (${stat.size} bytes; max ${DOC_MAX_BYTES})` }, 413);
+        }
+        const content = fs.readFileSync(resolved.abs, 'utf8');
+        return json(res, {
+          path: resolved.rel,
+          kind: kindForExt(resolved.ext),
+          ext: resolved.ext,
+          size: stat.size,
+          mtime: stat.mtime.toISOString(),
+          content,
+        });
+      }
+
       if (method !== 'GET' && method !== 'HEAD') {
         return json(res, { error: 'method not allowed' }, 405);
       }
@@ -145,7 +198,8 @@ export function startUiServer(opts) {
       const ext = path.extname(file);
       res.writeHead(200, {
         'content-type': MIME[ext] || 'application/octet-stream',
-        'cache-control': ext === '.html' ? 'no-store' : 'public, max-age=3600',
+        // Local board is edited in-place; never let the browser keep a stale UI.
+        'cache-control': 'no-store',
       });
       if (method === 'HEAD') return res.end();
       fs.createReadStream(file).pipe(res);

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
     <title>unticked</title>
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/styles.css?v=6" />
   </head>
   <body>
     <div class="shell">
@@ -19,10 +19,25 @@
         </div>
 
         <div class="top-actions">
+          <label class="search-wrap">
+            <span class="sr-only">Search</span>
+            <input id="searchInput" type="search" placeholder="Filter title, body, tags, docs…" />
+          </label>
           <div class="live" id="live" title="Auto-refreshes while this tab is open">
             <span class="live-dot" id="liveDot"></span>
             <span id="liveText">connecting…</span>
           </div>
+          <button
+            type="button"
+            class="btn docs-btn"
+            id="docsBtn"
+            aria-expanded="false"
+            aria-controls="docsPanel"
+            title="Linked documents"
+          >
+            Docs
+            <span class="docs-count-pill" id="docsBtnCount">0</span>
+          </button>
           <button type="button" class="icon-btn" id="themeBtn" aria-label="Toggle theme" title="Toggle light / dark">
             <span class="theme-icon light-only" aria-hidden="true">☾</span>
             <span class="theme-icon dark-only" aria-hidden="true">☀</span>
@@ -30,49 +45,81 @@
         </div>
       </header>
 
-      <section class="composer card">
-        <form id="createForm" class="composer-row">
-          <input
-            id="titleInput"
-            type="text"
-            placeholder="What needs doing — one line"
-            autocomplete="off"
-            maxlength="240"
-          />
-          <select id="priorityInput" aria-label="Priority" title="Priority">
-            <option value="p0">p0</option>
-            <option value="p1">p1</option>
-            <option value="p2" selected>p2</option>
-            <option value="p3">p3</option>
-          </select>
-          <button type="submit" class="btn primary" id="createBtn">Add</button>
-        </form>
-        <div class="composer-meta">
-          <label class="search-wrap">
-            <span class="sr-only">Search</span>
-            <input id="searchInput" type="search" placeholder="Filter title, body, tags, docs…" />
-          </label>
-          <p class="hint" id="hint">Closes with the files. Commit when you are done.</p>
+      <!-- data-docs-open: false = slim rail, true = full column. Default collapsed. -->
+      <div class="workspace" id="workspace" data-docs-open="false" data-view="board">
+        <div class="main-col">
+          <div id="boardView">
+            <section class="composer card">
+              <form id="createForm" class="composer-row">
+                <input
+                  id="titleInput"
+                  type="text"
+                  placeholder="What needs doing — one line"
+                  autocomplete="off"
+                  maxlength="240"
+                />
+                <select id="priorityInput" aria-label="Priority" title="Priority">
+                  <option value="p0">p0</option>
+                  <option value="p1">p1</option>
+                  <option value="p2" selected>p2</option>
+                  <option value="p3">p3</option>
+                </select>
+                <button type="submit" class="btn primary" id="createBtn">Add</button>
+              </form>
+              <p class="hint" id="hint">Closes with the files. Commit when you are done.</p>
+            </section>
+
+            <div id="banner" class="banner" hidden></div>
+
+            <main class="board" id="board" aria-live="polite"></main>
+
+            <footer class="foot">
+              <span id="footStats"></span>
+              <span class="muted">·</span>
+              <span class="muted">data lives in <code>.tickets/</code></span>
+            </footer>
+          </div>
+
+          <!-- Document reader: open via linked docs / ticket chips; Back returns to board -->
+          <section class="doc-view card" id="docView" hidden>
+            <header class="doc-view-bar">
+              <button type="button" class="btn" id="docBackBtn">← Back</button>
+              <div class="doc-view-meta">
+                <div class="doc-view-path" id="docViewPath"></div>
+                <div class="doc-view-sub muted" id="docViewSub"></div>
+              </div>
+            </header>
+            <div class="doc-view-loading muted" id="docViewLoading" hidden>Loading…</div>
+            <article class="doc-prose" id="docViewBody"></article>
+          </section>
         </div>
-      </section>
 
-      <div id="banner" class="banner" hidden></div>
+        <aside class="docs-col card" id="docsPanel" aria-label="Linked documents">
+          <!-- Collapsed the panel is hidden entirely; #docsBtn in the header reopens it. -->
+          <button
+            type="button"
+            class="docs-toggle"
+            id="docsToggle"
+            aria-expanded="true"
+            aria-controls="docsBody"
+            title="Hide linked documents"
+          >
+            <span class="docs-toggle-expanded">
+              <span class="docs-toggle-text">
+                <span class="docs-toggle-title">Linked documents</span>
+                <span class="docs-toggle-sub">Status from tickets · never stored</span>
+              </span>
+              <span class="docs-count-pill" id="docsCount">0</span>
+              <span class="docs-chevron" aria-hidden="true">✕</span>
+            </span>
+          </button>
 
-      <section class="docs card" id="docsPanel" hidden>
-        <div class="docs-head">
-          <h2>Linked documents</h2>
-          <span class="muted" id="docsCount"></span>
-        </div>
-        <ul id="docsList" class="docs-list"></ul>
-      </section>
-
-      <main class="board" id="board" aria-live="polite"></main>
-
-      <footer class="foot">
-        <span id="footStats"></span>
-        <span class="muted">·</span>
-        <span class="muted">data lives in <code>.tickets/</code></span>
-      </footer>
+          <div class="docs-body" id="docsBody">
+            <ul id="docsList" class="docs-list"></ul>
+            <p class="docs-empty muted" id="docsEmpty" hidden>No document links yet.</p>
+          </div>
+        </aside>
+      </div>
     </div>
 
     <dialog id="detailDialog" class="dialog">
@@ -90,6 +137,6 @@
       </form>
     </dialog>
 
-    <script src="/app.js" type="module"></script>
+    <script src="/app.js?v=6" type="module"></script>
   </body>
 </html>

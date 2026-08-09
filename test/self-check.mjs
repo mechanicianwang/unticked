@@ -208,6 +208,19 @@ assert.equal(JSON.parse(cli('show', b.id, '--json')).ticket.id, b.id);
     assert.match(createdBody.ticket.id, /^T-/);
     assert.equal(core.get(root, createdBody.ticket.id).title, 'from ui server');
 
+    // document reader API
+    fs.mkdirSync(path.join(root, 'docs'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'docs', 'sample.md'), '# Hello\n\n- one\n');
+    const doc = await fetch(base + '/api/doc?path=' + encodeURIComponent('docs/sample.md'));
+    const docBody = await doc.json();
+    assert.equal(doc.status, 200);
+    assert.equal(docBody.kind, 'markdown');
+    assert.equal(docBody.path, 'docs/sample.md');
+    assert.match(docBody.content, /# Hello/);
+
+    const blockedPath = await fetch(base + '/api/doc?path=' + encodeURIComponent('../outside.md'));
+    assert.equal(blockedPath.status, 404, 'path traversal must be rejected');
+
     const ro = await startUiServer({ root, port: 0, host: '127.0.0.1', readOnly: true });
     try {
       const blocked = await fetch(ro.url.replace(/\/$/, '') + '/api/tickets', {

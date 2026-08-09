@@ -88,11 +88,17 @@ ticket ui --read-only      # view only
 ticket ui --port 4000 --no-open
 ```
 
-- **Light (cream) and dark themes** — toggle in the header; preference is remembered
-- **Auto-refresh** while the tab is open (default every 4s; pauses when the tab is hidden)
-- **Writes** create / start / close / reopen / delete / archive through the same
-  JSON contract as `ticket ls --json`
+- **Kanban** for open / doing / closed — create, start, close, reopen, delete
+- **Cream light + ink dark themes** — toggle in the header; preference is remembered
+- **Auto-refresh** while the tab is open (default every 4s; pauses when hidden;
+  reloads immediately after writes)
+- **Linked documents** on the right — collapsed slim rail by default, click to
+  expand; open a path to read the file in the main pane with markdown/HTML
+  rendering, then **Back** (or browser back) to return to the board
+- **Writes** go through the same JSON contract as `ticket ls --json`
 - Binds to **127.0.0.1** by default — not a public SaaS surface
+
+Deep-link a document: `http://127.0.0.1:3847/?doc=docs/plans/feature.md`
 
 Stop with Ctrl+C. Without `ticket ui`, everything else still works.
 

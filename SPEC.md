@@ -241,8 +241,33 @@ serves a static board and the same JSON API. Default bind is `127.0.0.1:3847`.
 The board auto-refreshes while the tab is visible. Optional flags:
 `--port`, `--host`, `--root`, `--read-only`, `--poll <ms>`, `--no-open`.
 
-This is optional chrome around the file store. The CLI and adapters keep working
-if you never run it.
+UI surface (all optional chrome around the file store):
+
+- three-column board + create / status / remove / archive
+- light (cream) and dark themes (remembered in `localStorage`)
+- right-hand **Linked documents** rail — collapsed by default, click to expand
+- in-board document reader: click a linked path (or `?doc=` query) to open
+  markdown / text / html / json; **Back** and browser history return to the board
+
+Board-only HTTP endpoints (in addition to the ticket JSON below):
+
+```
+GET /api/tickets?...     same shape as `ticket ls --json` (+ docs, pollMs, readOnly)
+POST /api/tickets        { action: create|status|note|remove|archive, ... }
+GET /api/doc?path=rel    open a repo-relative text document for the reader
+GET /api/meta            root, config, readOnly, pollMs
+```
+
+`GET /api/doc` rules:
+
+- `path` is repo-relative (e.g. `docs/plans/x.md`); `..` and absolute paths rejected
+- allowed extensions: `.md`, `.markdown`, `.mdx`, `.txt`, `.html`, `.htm`,
+  `.json`, `.yml`, `.yaml`, `.csv`
+- max size 2 MiB
+- response: `{ path, kind, ext, size, mtime, content }` where `kind` is
+  `markdown` | `html` | `json` | `text`
+
+The CLI and embeddable adapters keep working if you never run `ticket ui`.
 
 ### d. HTTP adapter — embed in your own app
 
